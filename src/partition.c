@@ -50,7 +50,7 @@ void partition_audio(VisualScores *vs, char *cmd)
 	
 	int screen_w = GetSystemMetrics(SM_CXSCREEN);
    HWND hWnd = CreateWindow("Preview", "Preview", WS_POPUP | WS_BORDER | WS_VISIBLE,
-	                         0, 0, screen_w * 0.45, screen_w * 0.3,
+	                         screen_w * 0.55, 0, screen_w * 0.45, screen_w * 0.3,
 									 NULL, NULL, (HINSTANCE)GetModuleHandle(NULL), NULL);
 	if(hWnd == NULL)
 	{

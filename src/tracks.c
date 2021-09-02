@@ -35,6 +35,12 @@ bool has_audio_ext(char *filename)
 
 void load(VisualScores *vs, char *cmd)
 {
+	if(vs -> image_count == FILE_LIMIT)
+	{
+		VS_print_log(FILE_LIMIT_EXCEEDED);
+		return;
+	}
+	
 	char filename[STRING_LIMIT];
 	int offset = 0;
 	bool valid = load_check_input(vs, cmd, filename, &offset);
@@ -48,7 +54,7 @@ void load(VisualScores *vs, char *cmd)
 
 	if(!has_image_ext(filename))
 	{
-		VS_print_log(FAILED_TO_OPEN, filename);
+		VS_print_log(UNSUPPORTED_EXTENSION);
 		return;
 	}
 
@@ -161,6 +167,7 @@ void load_all(VisualScores *vs, char *cmd)
 		sprintf(pattern, "%s\\*.%s", path, image_ext[i]);
 		struct _finddata_t fileinfo;
 		intptr_t handle = _findfirst(pattern, &fileinfo);
+		bool exceeded = false;
 
 		if(handle != -1)
 		{
@@ -168,6 +175,21 @@ void load_all(VisualScores *vs, char *cmd)
 			do{
 				if( (strcmp(fileinfo.name, ".") != 0) && (strcmp(fileinfo.name, "..") != 0) )
 				{
+					if(vs -> image_count == FILE_LIMIT)
+					{
+						if(image_added > 0)
+						{
+							VS_print_log(FILE_LIMIT_EXCEEDED2);
+							exceeded = true;
+							break;
+						}
+						else
+						{
+							VS_print_log(FILE_LIMIT_EXCEEDED);
+							return;
+						}
+					}
+
 					sprintf(filename, "%s\\%s", path, fileinfo.name);
 					vs -> image_info[vs -> image_count] = AVInfo_init();
 					bool added = AVInfo_open(vs -> image_info[vs -> image_count], NULL,
@@ -187,6 +209,7 @@ void load_all(VisualScores *vs, char *cmd)
 			}	while(_findnext(handle, &fileinfo) == 0);
 		}
 		_findclose(handle);
+		if(exceeded)  break;
 	}
 	
 	if(image_added > 0)
@@ -259,12 +282,18 @@ void load_other(VisualScores *vs, char *cmd)
 	bool is_audio = has_audio_ext(filename);
 	if(!is_image && !is_audio)
 	{
-		VS_print_log(FAILED_TO_OPEN, filename);
+		VS_print_log(UNSUPPORTED_EXTENSION);
 		return;
 	}
 	
 	if(is_audio)
 	{
+		if(vs -> audio_count == FILE_LIMIT)
+		{
+			VS_print_log(FILE_LIMIT_EXCEEDED);
+			return;
+		}
+		
 		bool overlap = false;
 		for(int i = 0; i < vs -> audio_count; ++i)
 		{
@@ -286,7 +315,7 @@ void load_other(VisualScores *vs, char *cmd)
 		if(added)
 		{
 			if(begin == end)
-				vs -> image_info[vs -> image_pos[begin]] -> duration =
+				vs -> image_info[vs -> image_pos[begin - 1]] -> duration =
 					(vs -> audio_info[vs -> audio_count] -> fmt_ctx -> duration) / 1E6;
 			else
 			{
@@ -308,6 +337,12 @@ void load_other(VisualScores *vs, char *cmd)
 
 	if(is_image)
 	{
+		if(vs -> bg_count == FILE_LIMIT)
+		{
+			VS_print_log(FILE_LIMIT_EXCEEDED);
+			return;
+		}
+		
 		vs -> bg_info[vs -> bg_count] = AVInfo_init();
 		bool added = AVInfo_open(vs -> bg_info[vs -> bg_count], NULL,
 		                         filename, AVTYPE_BG_IMAGE, begin, end);
@@ -580,7 +615,7 @@ void modify_file(VisualScores *vs, char *cmd)
 			for(int i = vs -> audio_info[index - 1] -> begin - 1; i < vs -> audio_info[index - 1] -> end; ++i)
 				vs -> image_info[vs -> image_pos[i]] -> duration = 3.0;
 			if(begin == end)
-				vs -> image_info[vs -> image_pos[begin]] -> duration = 
+				vs -> image_info[vs -> image_pos[begin - 1]] -> duration = 
 					(vs -> audio_info[index - 1] -> fmt_ctx -> duration) / 1E6;
 			else
 			{
@@ -696,6 +731,66 @@ bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type,
 		}
 	}
 
+	return true;
+}
+
+void set_duration(VisualScores *vs, char *cmd)
+{
+	int index;
+	double time;
+	bool valid = set_duration_check_input(vs, cmd, &index, &time);
+	if(!valid)  return;
+	
+	int pos = vs -> image_pos[index - 1];
+	for(int i = 0; i < vs -> audio_count; ++i)
+	{
+		if(vs -> audio_info[i] -> begin <= pos && vs -> audio_info[i] -> end >= pos)
+		{
+			VS_print_log(CAN_NOT_SET_DURATION);
+			return;
+		}
+	}
+	vs -> image_info[pos] -> duration = time;
+	VS_print_log(DURATION_SET);
+	settings(vs, "");
+}
+
+bool set_duration_check_input(VisualScores *vs, char *cmd, int *index, double *time)
+{
+	if(cmd[0] != 'I')
+	{
+		VS_print_log(INVALID_INPUT);
+		return false;
+	}
+	
+	char str_index[10], str_time[STRING_LIMIT];
+	size_t pos = 1;
+	
+	while(pos < strlen(cmd) && cmd[pos] != ' ')
+		++pos;
+	strncpy(str_index, cmd + 1, pos - 1);
+	str_index[pos] = '\0';
+
+	while(pos < strlen(cmd) && cmd[pos] == ' ')
+		++pos;
+	strcpy(str_time, cmd + pos);
+	
+	char *pEnd;
+	*index = strtol(str_index, &pEnd, 10);
+	if(*pEnd != '\0' || str_index[0] < '0' || str_index[0] > '9' 
+	   || *index <= 0 || *index > vs -> image_count)
+	{
+		VS_print_log(INVALID_INPUT);
+		return false;
+	}
+
+	*time = strtod(str_time, &pEnd);
+	if(*pEnd != '\0' || str_time[0] < '0' || str_time[0] > '9' || *time < 0.01)
+	{
+		VS_print_log(INVALID_INPUT);
+		return false;
+	}
+	
 	return true;
 }
 

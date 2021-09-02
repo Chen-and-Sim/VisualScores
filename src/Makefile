@@ -8,7 +8,7 @@ LIBS = -L../lib/ \
 
 CC = gcc.exe
 RM = rm.exe -f
-OBJ = tracks.o partition.o visualscores.o avinfo.o vslog.o
+OBJ = tracks.o partition.o video.o visualscores.o avinfo.o vslog.o
 VS_INCLUDE_PATH = ../include/vslog.h ../include/visualscores.h
 BIN = ../VisualScores.exe
 
@@ -33,6 +33,9 @@ tracks.o: tracks.c $(VS_INCLUDE_PATH)
 
 partition.o: partition.c $(VS_INCLUDE_PATH)
 	$(CC) -c partition.c -o partition.o $(C_FLAGS)
+
+video.o: video.c $(VS_INCLUDE_PATH)
+	$(CC) -c video.c -o video.o $(C_FLAGS)
 
 visualscores.o: visualscores.c $(VS_INCLUDE_PATH)
 	$(CC) -c visualscores.c -o visualscores.o $(C_FLAGS)

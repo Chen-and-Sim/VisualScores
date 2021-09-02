@@ -9,13 +9,13 @@
 #include "visualscores.h"
 
 const char short_command[COMMAND_COUNT][5] =
-	{"-a", "-h", "-l", "-q", "-x", "-i", "-I", "-o", "-d", "-m", "-p", "-D", "-e"};
+	{"-a", "-h", "-l", "-q", "-x", "-i", "-I", "-o", "-d", "-m", "-t", "-p", "-D", "-e"};
 const char long_command[COMMAND_COUNT][10] =
-	{"about", "help", "language", "quit", "settings", "load", "loadall",
-	 "loadother", "delete", "modify", "partition", "discard", "export"};
+	{"about",     "help",   "language", "quit",     "settings",  "load",    "loadall",
+	 "loadother", "delete", "modify",   "duration", "partition", "discard", "export"};
 void (*functions[COMMAND_COUNT]) (VisualScores *, char*) =
-	{about, help, switch_language, quit, settings, load, load_all, load_other,
-	 delete_file, modify_file, partition_audio, discard_partition, export_video};
+	{about, help, switch_language, quit, settings, load, load_all, load_other, delete_file,
+	 modify_file, set_duration, partition_audio, discard_partition, export_video};
 
 VisualScores *VS_init()
 {
@@ -83,7 +83,9 @@ void help(VisualScores *vs, char *cmd)
 				 "-d <Tag>                   delete <Tag>\n"
 				 "    Delete the file tagged <Tag>.\n"
 				 "-m <Tag> <...>             modify <Tag> <...>\n"
-				 "    Modify the file tagged <Tag>.\n\n"
+				 "    Modify the file tagged <Tag>.\n"
+				 "-t <Tag> <Time>            duration <Tag> <Time>\n"
+				 "    Set the duration of an image file not in the range of any audio file.\n\n"
 				 "-p [Tag]                   partition [Tag]\n"
 				 "    Partition the audio file tagged [Tag] and determine the duration of\n"
 				 "    images in the range of the audio file.\n"
@@ -110,7 +112,9 @@ void help(VisualScores *vs, char *cmd)
 				 "-d <Tag>                   delete <Tag>\n"
 				 "    删除标签为 <Tag> 的文件。\n"
 				 "-m <Tag> <...>             modify <Tag> <...>\n"
-				 "    修改标签为 <Tag> 的文件。\n\n"
+				 "    修改标签为 <Tag> 的文件。\n"
+				 "-t <Tag> <Time>            duration <Tag> <Time>\n"
+				 "    设置不在任何一个音频范围内的图片的时长。\n\n"
 				 "-p [Tag]                   partition [Tag]\n"
 				 "    划分标签为 [Tag] 的音频文件以决定此音频范围内的图片的时长。\n"
 				 "-D <Tag>                   discard <Tag>\n"
@@ -181,16 +185,11 @@ void settings(VisualScores *vs, char *cmd)
 	printf("\n");
 }
 
-void export_video(VisualScores *vs, char *cmd)
-{
-	
-}
-
 int main()
 {
 	int screen_w = GetSystemMetrics(SM_CXSCREEN);
    int screen_h = GetSystemMetrics(SM_CYSCREEN);
-	SetWindowPos(GetConsoleWindow(), HWND_TOP, screen_w * 0.45, screen_h * 0.25,
+	SetWindowPos(GetConsoleWindow(), HWND_TOP, screen_w * 0.05, screen_h * 0.25,
 	             screen_w * 0.5, screen_h * 0.5, 0);
 	
 	WNDCLASSEX wc = {

@@ -14,7 +14,7 @@ typedef enum AVType
 	AVTYPE_AUDIO,
 	AVTYPE_BG_IMAGE,
 	AVTYPE_BMP,
-	AVTYPE_VIDEO  // Available formats: avi, jpeg, mp4, wmv.
+	AVTYPE_VIDEO
 } AVType;
 
 typedef struct AVInfo
