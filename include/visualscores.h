@@ -33,7 +33,7 @@ typedef struct VisualScores
 #define COMMAND_COUNT 13
 extern const char short_command[COMMAND_COUNT][5];
 extern const char long_command[COMMAND_COUNT][10];
-extern void (*functions[COMMAND_COUNT]) (VisualScores *, char*);
+extern void (*functions[COMMAND_COUNT]) (VisualScores *, char *);
 
 /* You should always call this function when initializing an VisualScore object. */
 extern VisualScores *VS_init();
@@ -72,6 +72,8 @@ extern bool delete_file_check_input(VisualScores *vs, char *cmd, AVType *type, i
 
 /* Modify a file. If it is an image file, its position is modified; otherwise its range is modified. */
 extern void modify_file(VisualScores *vs, char *cmd);
+extern bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type, 
+                                    int *index, int *arg1, int *arg2);
 
 #define ID_ENTER 1
 #define ID_ESCAPE 2

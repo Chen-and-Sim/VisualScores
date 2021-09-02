@@ -21,9 +21,15 @@ void partition_audio(VisualScores *vs, char *cmd)
 	bool valid = partition_audio_check_input(vs, cmd, &index);
 	if(!valid)  return;
 	
-	VS_print_log(CREATING_BMP);
 	int begin = vs -> audio_info[index - 1] -> begin;
 	int end = vs -> audio_info[index - 1] -> end;
+	if(begin == end)
+	{
+		VS_print_log(NEED_NO_PARTITION);
+		return;
+	}
+	
+	VS_print_log(CREATING_BMP);
 	for(int i = begin - 1; i < end; ++i)
 	{
 		if( !AVInfo_create_bmp(vs -> image_info[vs -> image_pos[i]]) )

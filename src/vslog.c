@@ -1,9 +1,11 @@
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "vslog.h"
 
 Language language = English;
+bool muted = false;
 
 const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 	{
@@ -31,8 +33,10 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"Successfully loaded audio.\n",
 		"Warning: file %s is also deleted.\n",
 		"Successfully deleted file.\n\n",
+		"Successfully modified file.\n\n",
 
 		"You have to load an audio file first.\n\n",
+		"This audio file does not need to partition.\n\n",
 		"Creating bmp files for display...\n",
 		"ERROR: Failed to create bmp files.\n\n",
 		"ERROR: No music player detected or you have not set default music player.\n\n",
@@ -64,10 +68,12 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"未找到图片。请检查输入后重试。\n\n",
 		"不能重叠音频文件。\n\n",
 		"成功加载音频。\n",
-		"警告：文件 %s 也被删除了。\n",
+		"警告：文件 %s 也被删除。\n",
 		"成功删除文件。\n\n",
+		"成功修改文件。\n\n",
 
 		"您需要先载入音频文件。\n\n",
+		"该音频文件无需划分。\n\n",
 		"正在创建bmp预览图…\n",
 		"错误：无法创建bmp预览图。\n\n",
 		"错误：未检测到音乐播放器或您未设置默认音乐播放器。\n\n",
@@ -81,6 +87,8 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 
 void VS_print_log(VS_log_tag tag, ...)
 {
+	if(muted)  return;
+	
 	va_list vl;
 	va_start(vl, tag);
 	vprintf(vs_log[language][(int)tag], vl);

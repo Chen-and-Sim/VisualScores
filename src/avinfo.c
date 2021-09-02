@@ -79,8 +79,7 @@ bool AVInfo_open(AVInfo *av_info, AVInfo *in_av_info, char *filename,
 			av_info -> end = end;
 	}
 
-	int ret = 0;
-	char* pch = strrchr(filename, '.') + 1;
+	char *pch = strrchr(filename, '.') + 1;
 	char fmt_short_name[10];
 	strcpy(fmt_short_name, pch);
 	if(strcmp(fmt_short_name, "jpg") == 0)
@@ -90,6 +89,7 @@ bool AVInfo_open(AVInfo *av_info, AVInfo *in_av_info, char *filename,
 	if((type == AVTYPE_IMAGE || type == AVTYPE_BG_IMAGE) && strcmp(fmt_short_name, "ico") != 0)
 		strcat(fmt_short_name, "_pipe");
 
+	bool ret = true;
 	switch(type)
 	{
 		case AVTYPE_IMAGE:
@@ -106,7 +106,7 @@ bool AVInfo_open(AVInfo *av_info, AVInfo *in_av_info, char *filename,
 			ret = AVInfo_open_video(av_info, in_av_info);
 			break;
 	}
-	return true;
+	return ret;
 }
 
 bool AVInfo_open_input(AVInfo *av_info, char *fmt_short_name)

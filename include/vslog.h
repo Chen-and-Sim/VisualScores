@@ -1,8 +1,10 @@
 #ifndef VSLOG_H
 #define VSLOG_H
 
+#include <stdbool.h>
+
 /* Note that here we have added 1 to the actual number of tags. */
-#define VS_LOG_COUNT 32
+#define VS_LOG_COUNT 34
 #define STRING_LIMIT 200  /* maximum length of a string */
 
 typedef enum Language
@@ -11,6 +13,8 @@ typedef enum Language
 	Chinese = 1
 } Language;
 extern Language language;
+
+extern bool muted;
 
 typedef enum VS_log_tag
 {
@@ -37,8 +41,10 @@ typedef enum VS_log_tag
 	AUDIO_LOADED,
 	ANOTHER_FILE_DELETED,
 	FILE_DELETED,
+	FILE_MODIFIED,
 
 	AUDIO_NOT_LOADED,
+	NEED_NO_PARTITION,
 	CREATING_BMP,
 	FAILED_TO_CREATE_BMP,
 	NO_MUSIC_PLAYER_FOUND,

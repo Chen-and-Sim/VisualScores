@@ -125,7 +125,7 @@ bool load_check_input(VisualScores *vs, char *cmd, char *filename, int *offset)
 		while(pos < strlen(cmd) && cmd[pos] == ' ')
 			++pos;
 		strcpy(str_offset, cmd + pos);
-		char* pEnd;
+		char *pEnd;
 		*offset = strtol(str_offset, &pEnd, 10);
 		if(str_offset[0] < '0' || str_offset[0] > '9' || *pEnd != '\0' || 
 		   *offset < 0 || *offset > vs -> image_count)
@@ -268,7 +268,7 @@ void load_other(VisualScores *vs, char *cmd)
 		bool overlap = false;
 		for(int i = 0; i < vs -> audio_count; ++i)
 		{
-			if( !(begin > vs -> audio_info[i] -> end || end < vs -> audio_info[i] -> begin) )
+			if(begin <= vs -> audio_info[i] -> end && end >= vs -> audio_info[i] -> begin)
 			{
 				overlap = true;
 				break;
@@ -285,9 +285,15 @@ void load_other(VisualScores *vs, char *cmd)
 		                         filename, AVTYPE_AUDIO, begin, end);
 		if(added)
 		{
-			/* set the duration of image files in the range of the audio file to negative */
-			for(int i = begin - 1; i < end; ++i)
-				vs -> image_info[vs -> image_pos[i]] -> duration *= (-1);
+			if(begin == end)
+				vs -> image_info[vs -> image_pos[begin]] -> duration =
+					(vs -> audio_info[vs -> audio_count] -> fmt_ctx -> duration) / 1E6;
+			else
+			{
+				/* set the duration of image files in the range of the audio file to negative */
+				for(int i = begin - 1; i < end; ++i)
+					vs -> image_info[vs -> image_pos[i]] -> duration *= (-1);
+			}
 
 			++(vs -> audio_count);
 			VS_print_log(AUDIO_LOADED);
@@ -346,10 +352,10 @@ bool load_other_check_input(VisualScores *vs, char *cmd, char *filename, int *be
 		strncpy(str_begin, cmd + pos1, pos2 - pos1);
 		str_begin[pos2 - pos1] = '\0';
 
-		char* pEnd;
+		char *pEnd;
 		*begin = strtol(str_begin, &pEnd, 10);
 		if(str_begin[0] < '0' || str_begin[0] > '9' || *pEnd != '\0' ||
-		   *begin < 0 || *begin > vs -> image_count)
+		   *begin <= 0 || *begin > vs -> image_count)
 		{
 			VS_print_log(INVALID_INPUT);
 			return false;
@@ -514,8 +520,8 @@ bool delete_file_check_input(VisualScores *vs, char *cmd, AVType *type, int *ind
 		return false;
 	}
 	
-	char* pEnd;
-	*index = strtol(cmd + 1, &pEnd, 10);
+	char *pEnd;
+	*index = strtol(cmd + pos, &pEnd, 10);
 	if(*pEnd != '\0' || *index <= 0 || *index > max_index)
 	{
 		VS_print_log(INVALID_INPUT);
@@ -527,6 +533,169 @@ bool delete_file_check_input(VisualScores *vs, char *cmd, AVType *type, int *ind
 
 void modify_file(VisualScores *vs, char *cmd)
 {
+	AVType type;
+	int index, arg1, arg2;
+	bool valid = modify_file_check_input(vs, cmd, &type, &index, &arg1, &arg2);
+	if(!valid)  return;
+
+	switch(type)
+	{
+		case AVTYPE_IMAGE:
+		{
+			int pos = ((index <= arg1) ? (arg1 - 1) : arg1);
+			char tag[10];
+			sprintf(tag, "I%d", index);
+			char cmd[STRING_LIMIT];
+			sprintf(cmd, "%s %d", vs -> image_info[vs -> image_pos[index - 1]] -> filename, pos);
+
+			muted = true;
+			delete_file(vs, tag);
+			load(vs, cmd);
+			muted = false;
+
+			break;
+		}
+		
+		case AVTYPE_AUDIO:
+		{
+			int begin = arg1, end = arg2;
+			bool overlap = false;
+			for(int i = 0; i < vs -> audio_count; ++i)
+			{
+				if(i == index - 1)
+					continue;
+				if(begin <= vs -> audio_info[index - 1] -> end &&
+				   end   >= vs -> audio_info[index - 1] -> begin)
+				{
+					overlap = true;
+					break;
+				}
+			}
+			if(overlap)
+			{
+				VS_print_log(AUDIO_OVERLAP);
+				return;
+			}
+			
+			for(int i = vs -> audio_info[index - 1] -> begin - 1; i < vs -> audio_info[index - 1] -> end; ++i)
+				vs -> image_info[vs -> image_pos[i]] -> duration = 3.0;
+			if(begin == end)
+				vs -> image_info[vs -> image_pos[begin]] -> duration = 
+					(vs -> audio_info[index - 1] -> fmt_ctx -> duration) / 1E6;
+			else
+			{
+				for(int i = begin - 1; i < end; ++i)
+					vs -> image_info[vs -> image_pos[i]] -> duration *= (-1);
+			}
+
+			vs -> audio_info[index - 1] -> partitioned = false;
+			vs -> audio_info[index - 1] -> begin = begin;
+			vs -> audio_info[index - 1] -> end = end;
+			break;
+		}
+		
+		case AVTYPE_BG_IMAGE:
+		{
+			int begin = arg1, end = arg2;
+			vs -> bg_info[index - 1] -> begin = begin;
+			vs -> bg_info[index - 1] -> end = end;
+			break;
+		}
+	}
 	
+	VS_print_log(FILE_MODIFIED);
+	settings(vs, "");
+}
+
+bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type, 
+                             int *index, int *arg1, int *arg2)
+{
+	char tag[10], str_arg1[10], str_arg2[10];
+	size_t pos1 = 0, pos2 = 0;
+	
+	while(pos1 < strlen(cmd) && cmd[pos1] != ' ')
+		++pos1;
+	strncpy(tag, cmd, pos1);
+	tag[pos1] = '\0';
+	
+	while(pos1 < strlen(cmd) && cmd[pos1] == ' ')
+		++pos1;
+	pos2 = pos1;
+	while(pos2 < strlen(cmd) && cmd[pos2] != ' ')
+		++pos2;
+	strncpy(str_arg1, cmd + pos1, pos2 - pos1);
+	str_arg1[pos2 - pos1] = '\0';
+
+	while(pos2 < strlen(cmd) && cmd[pos2] == ' ')
+		++pos2;
+	strcpy(str_arg2, cmd + pos2);
+
+	size_t pos;
+	int max_index;
+	switch(tag[0])
+	{
+		case 'I':
+			*type = AVTYPE_IMAGE;
+			max_index = vs -> image_count;
+			pos = 1;
+			break;
+		case 'A':
+			*type = AVTYPE_AUDIO;
+			max_index = vs -> audio_count;
+			pos = 1;
+			break;
+		case 'B':
+			if(tag[1] == 'G')
+			{
+				*type = AVTYPE_BG_IMAGE;
+				max_index = vs -> bg_count;
+				pos = 2;
+				break;
+			}
+		default:
+			VS_print_log(INVALID_INPUT);
+			return false;
+	}
+	
+	char *pEnd;
+	*index = strtol(tag + pos, &pEnd, 10);
+	if(*pEnd != '\0' || tag[pos] < '0' || tag[pos] > '9' 
+	   || *index <= 0 || *index > max_index)
+	{
+		VS_print_log(INVALID_INPUT);
+		return false;
+	}
+	
+	if(*type == AVTYPE_IMAGE)
+	{
+		*arg1 = strtol(str_arg1, &pEnd, 10);
+		if(*pEnd != '\0' || str_arg1[0] < '0' || str_arg1[0] > '9' 
+		   || *arg1 < 0 || *arg1 > vs -> image_count)
+		{
+			VS_print_log(INVALID_INPUT);
+			return false;
+		}
+		*arg2 = -1;
+	}
+	else
+	{
+		*arg1 = strtol(str_arg1, &pEnd, 10);
+		if(*pEnd != '\0' || str_arg1[0] < '0' || str_arg1[0] > '9' 
+		   || *arg1 <= 0 || *arg1 > vs -> image_count)
+		{
+			VS_print_log(INVALID_INPUT);
+			return false;
+		}
+		
+		*arg2 = strtol(str_arg2, &pEnd, 10);
+		if(*pEnd != '\0' || str_arg2[0] < '0' || str_arg2[0] > '9' 
+		   || *arg2 < *arg1 || *arg2 > vs -> image_count)
+		{
+			VS_print_log(INVALID_INPUT);
+			return false;
+		}
+	}
+
+	return true;
 }
 

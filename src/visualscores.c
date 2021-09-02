@@ -138,6 +138,8 @@ void quit(VisualScores *vs, char *cmd)
 
 void settings(VisualScores *vs, char *cmd)
 {
+	if(muted)  return;
+	
 	if(vs -> image_count == 0)
 	{
 		VS_print_log(IMAGE_NOT_LOADED);
