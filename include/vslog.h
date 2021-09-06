@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 /* Note that here we have added 1 to the actual number of tags. */
-#define VS_LOG_COUNT 41
+#define VS_LOG_COUNT 46
 #define STRING_LIMIT 300  /* maximum length of a string */
 
 typedef enum Language
@@ -49,6 +49,7 @@ typedef enum VS_log_tag
 	DURATION_SET,
 
 	AUDIO_NOT_LOADED,
+	ALL_AUDIO_PARTITIONED,
 	NEED_NO_PARTITION,
 	CREATING_BMP,
 	FAILED_TO_CREATE_BMP,
@@ -60,7 +61,11 @@ typedef enum VS_log_tag
 	PARTITION_COMPLETE,
 	
 	DURATION_NOT_SET,
-	TIME_LIMIT_EXCEEDED
+	TIME_LIMIT_EXCEEDED,
+	WRITING_IMAGE_TRACK,
+	WRITING_AUDIO_TRACK,
+	FAILED_TO_EXPORT,
+	VIDEO_EXPORTED
 } VS_log_tag;
 
 extern const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT];

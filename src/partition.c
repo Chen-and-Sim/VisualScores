@@ -49,7 +49,7 @@ void partition_audio(VisualScores *vs, char *cmd)
 	}
 	
 	int screen_w = GetSystemMetrics(SM_CXSCREEN);
-   HWND hWnd = CreateWindow("Preview", "Preview", WS_POPUP | WS_BORDER | WS_VISIBLE,
+	HWND hWnd = CreateWindow("Preview", "Preview", WS_POPUP | WS_BORDER | WS_VISIBLE,
 	                         screen_w * 0.55, 0, screen_w * 0.45, screen_w * 0.3,
 									 NULL, NULL, (HINSTANCE)GetModuleHandle(NULL), NULL);
 	if(hWnd == NULL)
@@ -71,8 +71,8 @@ void partition_audio(VisualScores *vs, char *cmd)
 		return;
 	}
 	do_painting(hWnd, hBitmap);
-   RegisterHotKey(hWnd, ID_ENTER, 0, VK_RETURN);
-   RegisterHotKey(hWnd, ID_ESCAPE, 0, VK_ESCAPE);
+	RegisterHotKey(hWnd, ID_ENTER, 0, VK_RETURN);
+	RegisterHotKey(hWnd, ID_ESCAPE, 0, VK_ESCAPE);
 
 	VS_print_log(COUNTDOWN, 3);
 	Sleep(1000);
@@ -92,7 +92,8 @@ void partition_audio(VisualScores *vs, char *cmd)
 	do_painting(hWnd, hBitmap);
 
 	int partition_count = 0;
-	clock_t begin_time = clock();
+	/* We do 0.5 second of delay here. */
+	clock_t begin_time = clock() + CLOCKS_PER_SEC / 2;
 	clock_t prev_time = begin_time;
 	double rec_duration[FILE_LIMIT];
 	MSG msg;
@@ -103,9 +104,9 @@ void partition_audio(VisualScores *vs, char *cmd)
 		TranslateMessage(&msg);
 		switch(msg.message)
 		{
-   	   case WM_PAINT:
-   	   	do_painting(hWnd, hBitmap);
-   	   	break;
+			case WM_PAINT:
+				do_painting(hWnd, hBitmap);
+			break;
 
 			case WM_HOTKEY:
 				if(msg.wParam == ID_ENTER)
@@ -137,6 +138,7 @@ bool partition_audio_check_input(VisualScores *vs, char *cmd, int *index)
 				return true;
 			}
 		}
+		VS_print_log(ALL_AUDIO_PARTITIONED);
 	}
 	
 	if(cmd[0] != 'A' || cmd[1] < '0' || cmd[1] > '9')
@@ -145,7 +147,7 @@ bool partition_audio_check_input(VisualScores *vs, char *cmd, int *index)
 		return false;
 	}
 	
-	char* pEnd;
+	char *pEnd;
 	*index = strtol(cmd + 1, &pEnd, 10);
 	if(*pEnd != '\0' || *index <= 0 || *index > vs -> audio_count)
 	{
@@ -180,24 +182,24 @@ void close_music_player()
 void do_painting(HWND hWnd, HBITMAP *hBitmap)
 {
 	PAINTSTRUCT ps;
-   HDC hdc = BeginPaint(hWnd, &ps);
+	HDC hdc = BeginPaint(hWnd, &ps);
 	HDC hdcMem = CreateCompatibleDC(hdc);
-   HGDIOBJ oldBitmap = SelectObject(hdcMem, *hBitmap);
+	HGDIOBJ oldBitmap = SelectObject(hdcMem, *hBitmap);
 	BITMAP bitmap;
-   GetObject(*hBitmap, sizeof(bitmap), &bitmap);
+	GetObject(*hBitmap, sizeof(bitmap), &bitmap);
 
 	RECT rc = {0};
-   GetWindowRect(hWnd, &rc);
-   int win_w = rc.right - rc.left;
-   int win_h = rc.bottom - rc.top;
-   int x = (win_w - bitmap.bmWidth) / 2;
-   int y = (win_h - bitmap.bmHeight) / 2;
-   StretchBlt(hdc, x, y, bitmap.bmWidth, bitmap.bmHeight, hdcMem, 
+	GetWindowRect(hWnd, &rc);
+	int win_w = rc.right - rc.left;
+	int win_h = rc.bottom - rc.top;
+	int x = (win_w - bitmap.bmWidth) / 2;
+	int y = (win_h - bitmap.bmHeight) / 2;
+	StretchBlt(hdc, x, y, bitmap.bmWidth, bitmap.bmHeight, hdcMem, 
 	           0, 0, bitmap.bmWidth, bitmap.bmHeight, SRCCOPY);
 
-   SelectObject(hdcMem, oldBitmap);
-   DeleteDC(hdcMem);
-   EndPaint(hWnd, &ps);
+	SelectObject(hdcMem, oldBitmap);
+	DeleteDC(hdcMem);
+	EndPaint(hWnd, &ps);
 }
 
 bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_info,
@@ -255,9 +257,9 @@ void escape_pressed(HWND hWnd, HBITMAP *hBitmap)
 	close_music_player();
 	system("forfiles /P _file\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
 	UnregisterHotKey(hWnd, ID_ENTER);
-   UnregisterHotKey(hWnd, ID_ESCAPE);
-   DeleteObject(*hBitmap);
-   free(hBitmap);
+	UnregisterHotKey(hWnd, ID_ESCAPE);
+	DeleteObject(*hBitmap);
+	free(hBitmap);
 }
 
 void discard_partition(VisualScores *vs, char *cmd)
@@ -268,7 +270,7 @@ void discard_partition(VisualScores *vs, char *cmd)
 		return;
 	}
 	
-	char* pEnd;
+	char *pEnd;
 	int index = strtol(cmd + 1, &pEnd, 10);
 	if(*pEnd != '\0' || index <= 0 || index > vs -> audio_count)
 	{

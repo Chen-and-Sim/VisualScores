@@ -13,7 +13,7 @@ const char short_command[COMMAND_COUNT][5] =
 const char long_command[COMMAND_COUNT][10] =
 	{"about",     "help",   "language", "quit",     "settings",  "load",    "loadall",
 	 "loadother", "delete", "modify",   "duration", "partition", "discard", "export"};
-void (*functions[COMMAND_COUNT]) (VisualScores *, char*) =
+void (*functions[COMMAND_COUNT]) (VisualScores *, char *) =
 	{about, help, switch_language, quit, settings, load, load_all, load_other, delete_file,
 	 modify_file, set_duration, partition_audio, discard_partition, export_video};
 
@@ -33,6 +33,7 @@ VisualScores *VS_init()
 	if(vs -> bg_info == NULL)
 	{
 		VS_print_log(INSUFFICIENT_MEMORY);
+		system("pause >nul 2>&1");
 		abort();
 	}
 	
@@ -188,27 +189,27 @@ void settings(VisualScores *vs, char *cmd)
 int main()
 {
 	int screen_w = GetSystemMetrics(SM_CXSCREEN);
-   int screen_h = GetSystemMetrics(SM_CYSCREEN);
+	int screen_h = GetSystemMetrics(SM_CYSCREEN);
 	SetWindowPos(GetConsoleWindow(), HWND_TOP, screen_w * 0.05, screen_h * 0.25,
 	             screen_w * 0.5, screen_h * 0.5, 0);
 	
 	WNDCLASSEX wc = {
-   	.cbSize = sizeof(WNDCLASSEX),
-   	.style = CS_HREDRAW | CS_VREDRAW,
-   	.lpfnWndProc = DefWindowProc,
-   	.cbClsExtra = 0,
-   	.cbWndExtra = 0,
-   	.hInstance = (HINSTANCE)GetModuleHandle(NULL),
-   	.hIcon = NULL,
-   	.hCursor = LoadCursor(0, IDC_ARROW),
-   	.hbrBackground = (HBRUSH)COLOR_WINDOW,
-   	.lpszMenuName = NULL,
-   	.lpszClassName = "Preview",
-   	.hIconSm = NULL
+		.cbSize = sizeof(WNDCLASSEX),
+		.style = CS_HREDRAW | CS_VREDRAW,
+		.lpfnWndProc = DefWindowProc,
+		.cbClsExtra = 0,
+		.cbWndExtra = 0,
+		.hInstance = (HINSTANCE)GetModuleHandle(NULL),
+		.hIcon = NULL,
+		.hCursor = LoadCursor(0, IDC_ARROW),
+		.hbrBackground = (HBRUSH)COLOR_WINDOW,
+		.lpszMenuName = NULL,
+		.lpszClassName = "Preview",
+		.hIconSm = NULL
 	};
-   RegisterClassEx(&wc);
+	RegisterClassEx(&wc);
 
-	av_log_set_level(AV_LOG_QUIET);
+	av_log_set_level(AV_LOG_DEBUG);
 	VisualScores *vs = VS_init();
 
 	char null[1] = "";
@@ -222,7 +223,7 @@ int main()
 		if(str[strlen(str) - 1] == '\n')
 			str[strlen(str) - 1] = '\0';
 
-		char* pch = strchr(str, ' ');
+		char *pch = strchr(str, ' ');
 		if(pch == NULL)
 		{
 			strcpy(former_part, str);

@@ -12,9 +12,10 @@
 
 typedef struct VisualScores
 {
-	AVInfo **image_info;
-	AVInfo **audio_info;
-	AVInfo **bg_info;
+	AVInfo **image_info;  /* image track */
+	AVInfo **audio_info;  /* audio track */
+	AVInfo **bg_info;     /* background image track */
+	AVInfo  *video_info;
 
 	int image_count;
 	int audio_count;
@@ -102,13 +103,12 @@ extern void escape_pressed(HWND hWnd, HBITMAP *hBitmap);
 /* Discard the partition done to an audio file. */
 extern void discard_partition(VisualScores *vs, char *cmd);
 
-/*
- * variable dest: filename of the video file 
- * variable src: argument [Path] specified by user input
-*/
+/* Determine the filename of the video file from the argument [Path] specified by user input. */
 extern void get_video_filename(char *dest, char *src);
 
 /* Export the video file. */
 extern void export_video(VisualScores *vs, char *cmd);
+extern bool write_image_track(VisualScores *vs);
+extern bool write_audio_track(VisualScores *vs);
 
 #endif /* VISUALSCORES_H */

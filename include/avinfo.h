@@ -6,7 +6,12 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavformat/avio.h>
+#include <libavutil/audio_fifo.h>
 #include <libavutil/file.h>
+#include <libswresample/swresample.h>
+
+extern const double VS_framerate;
+extern const int VS_samplerate;
 
 typedef enum AVType
 {
@@ -20,7 +25,8 @@ typedef enum AVType
 typedef struct AVInfo
 {
 	AVFormatContext *fmt_ctx;
-	AVCodecContext  *codec_ctx;
+	AVCodecContext  *codec_ctx;   /* video codec context for video file */
+	AVCodecContext  *codec_ctx2;  /* audio codec context for video file */
 	AVPacket *packet;
 	AVFrame  *frame;
 
@@ -39,6 +45,10 @@ typedef struct AVInfo
 	int begin;
 	int end;
 	
+	/* for all types of file except audio file */
+	int width;
+	int height;
+	
 	bool partitioned;  /* for audio track */
 } AVInfo;
 
@@ -51,29 +61,30 @@ extern void AVInfo_free(AVInfo *av_info);
 /**
  * Load an image/audio file to an AVInfo object.
  * Return true on success and false on failure.
- * Variable "in_av_info" is the AVInfo object corresponding to a file loaded in some track.
- * This is needed if "av_info" is used for output; otherwise it can be NULL.
  * Variables "begin" and "end" is used to determine
  * av_info -> begin / end / begin / end.
+ * Variables "width" and "height" is used to determine the size of output file.
  */
-extern bool AVInfo_open(AVInfo *av_info, AVInfo *in_av_info, char *filename,
-                        AVType type, int begin, int end);
+extern bool AVInfo_open(AVInfo *av_info, char *filename, AVType type,
+                         int begin, int end, int width, int height);
 
 /* Variable "fmt_short_name" is used to determine demuxers. */
 extern bool AVInfo_open_input(AVInfo *av_info, char *fmt_short_name);
-
-/**
- * Variable "out_av_info" is the AVInfo object corresponding to the bmp file.
- * Variable "in_av_info" is the AVInfo object corresponding to the original image.
- */
-extern bool AVInfo_open_bmp(AVInfo *out_av_info, AVInfo *in_av_info);
-
-extern bool AVInfo_open_video(AVInfo *out_av_info, AVInfo *in_av_info);
+extern bool AVInfo_open_bmp(AVInfo *av_info);
+extern bool AVInfo_open_video(AVInfo *av_info);
 
 /* Clear original data and open the file again. */
 extern void AVInfo_reopen_input(AVInfo *av_info);
 
-/* Creates a temporary bmp file in order to preview images in "partition_audio". */
+/* Create a temporary bmp file in order to preview images in "partition_audio". */
 extern bool AVInfo_create_bmp(AVInfo *av_info);
+
+/* Write raw data to FIFO. */
+extern bool AVInfo_write_to_fifo(AVAudioFifo *audio_fifo, AVFrame *frame);
+
+/* The whole decoding/encoding process. */
+extern bool decode_audio_to_fifo(AVInfo *audio_info, AVInfo *video_info,
+                                 AVAudioFifo *audio_fifo, struct SwrContext *swr_ctx);
+extern bool encode_audio_from_fifo(AVInfo *video_info, AVAudioFifo *audio_fifo, int64_t *pts);
 
 #endif /* AVINFO_H */

@@ -19,7 +19,7 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"\nBackground image track:\n",
 		"    %s%d: filename: %s, ",
 		"duration: N/A\n",
-		"duration: %.3f(s)\n",
+		"duration: %.2f(s)\n",
 		"begin: I%d, end: I%d\n",
 
 		"File limit exceeded. Failed to load file.\n\n",
@@ -35,12 +35,13 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"You can not overlap audio files.\n\n",
 		"Successfully loaded audio.\n",
 		"Warning: file %s is also deleted.\n",
-		"Successfully deleted file.\n\n",
-		"Successfully modified file.\n\n",
+		"Successfully deleted file.\n",
+		"Successfully modified file.\n",
 		"The duration of the image file can not be changed since it is in the range of an audio file.\n\n",
 		"Successfully set duration.\n",
 
 		"You have to load an audio file first.\n\n",
+		"All audio files have been partitioned.\n\n",
 		"This audio file does not need to partition.\n\n",
 		"Creating bmp files for display...\n",
 		"ERROR: Failed to create bmp files.\n\n",
@@ -52,7 +53,11 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"\nSuccessfully partitioned audio.\nPress enter to close the display window and the music player.\n",
 		
 		"The duration of image file I%d is not set.\n\n",
-		"Time limit exceeded. Failed to export video.\n\n"
+		"Time limit exceeded. Failed to export video.\n\n",
+		"Writing image track: %d/%d\n",
+		"Writing audio track: %d/%d\n",
+		"Failed to export video file.\n\n",
+		"Export completed.\n\n"
 	}, {
 		"",
 		"错误：内存不足。程序已退出。\n",
@@ -64,7 +69,7 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"\n背景图片轨：\n",
 		"    %s%d：文件名：%s，",
 		"时长：N/A\n",
-		"时长：%.3f（秒）\n",
+		"时长：%.2f（秒）\n",
 		"开始：I%d，结束：I%d\n",
 
 		"超过文件数量上限。载入失败。\n\n",
@@ -80,12 +85,13 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"不能重叠音频文件。\n\n",
 		"成功加载音频。\n",
 		"警告：文件 %s 也被删除。\n",
-		"成功删除文件。\n\n",
-		"成功修改文件。\n\n",
+		"成功删除文件。\n",
+		"成功修改文件。\n",
 		"无法改变该图片文件的时长，因为它在某个音频文件的范围中。\n\n",
 		"成功设置时长。\n",
 
 		"您需要先载入音频文件。\n\n",
+		"所有音频文件都被划分过了。\n\n",
 		"该音频文件无需划分。\n\n",
 		"正在创建bmp预览图…\n",
 		"错误：无法创建bmp预览图。\n\n",
@@ -97,7 +103,11 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"\n成功划分音频。\n按回车键关闭预览窗口和音乐播放器。\n",
 		
 		"未设置图片 I%d 的时长。\n\n",
-		"视频时长超过限制。导出视频失败。\n\n"
+		"视频时长超过限制。导出视频失败。\n\n",
+		"正在导出图片轨：%d/%d\n",
+		"正在导出音频轨：%d/%d\n",
+		"视频导出失败。\n\n",
+		"导出完成。\n\n" 
 	}
 };
 

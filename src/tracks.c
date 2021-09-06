@@ -59,8 +59,8 @@ void load(VisualScores *vs, char *cmd)
 	}
 
 	vs -> image_info[vs -> image_count] = AVInfo_init();
-	bool image_added = AVInfo_open(vs -> image_info[vs -> image_count], NULL,
-	   			                   filename, AVTYPE_IMAGE, -1, -1);
+	bool image_added = AVInfo_open(vs -> image_info[vs -> image_count], filename,
+	   			                   AVTYPE_IMAGE, -1, -1, -1, -1);
 	/* -1 is a placeholder. */
 	if(image_added)
 	{
@@ -76,7 +76,7 @@ void load(VisualScores *vs, char *cmd)
 				++(vs -> audio_info[i] -> begin);
 			if(vs -> audio_info[i] -> end > offset)
 				++(vs -> audio_info[i] -> end);
-			if(vs -> audio_info[i] -> begin <= offset && vs -> audio_info[i] -> end >= offset)
+			if(vs -> audio_info[i] -> begin <= offset && vs -> audio_info[i] -> end > offset)
 				in_range_of_audio = i;
 		}
 		
@@ -192,8 +192,8 @@ void load_all(VisualScores *vs, char *cmd)
 
 					sprintf(filename, "%s\\%s", path, fileinfo.name);
 					vs -> image_info[vs -> image_count] = AVInfo_init();
-					bool added = AVInfo_open(vs -> image_info[vs -> image_count], NULL,
-					                         filename, AVTYPE_IMAGE, -1, -1);
+					bool added = AVInfo_open(vs -> image_info[vs -> image_count],
+					                         filename, AVTYPE_IMAGE, -1, -1, -1, -1);
 					/* -1 is a placeholder. */
 					if(added)
 					{
@@ -226,7 +226,7 @@ void load_all(VisualScores *vs, char *cmd)
 				(vs -> audio_info[i] -> begin) += image_added;
 			if(vs -> audio_info[i] -> end > offset)
 				(vs -> audio_info[i] -> end) += image_added;
-			if(vs -> audio_info[i] -> begin <= offset && vs -> audio_info[i] -> end >= offset)
+			if(vs -> audio_info[i] -> begin <= offset && vs -> audio_info[i] -> end > offset)
 				in_range_of_audio = i;
 		}
 		
@@ -310,8 +310,8 @@ void load_other(VisualScores *vs, char *cmd)
 		}
 		
 		vs -> audio_info[vs -> audio_count] = AVInfo_init();
-		bool added = AVInfo_open(vs -> audio_info[vs -> audio_count], NULL,
-		                         filename, AVTYPE_AUDIO, begin, end);
+		bool added = AVInfo_open(vs -> audio_info[vs -> audio_count],
+		                         filename, AVTYPE_AUDIO, begin, end, -1, -1);
 		if(added)
 		{
 			if(begin == end)
@@ -344,8 +344,8 @@ void load_other(VisualScores *vs, char *cmd)
 		}
 		
 		vs -> bg_info[vs -> bg_count] = AVInfo_init();
-		bool added = AVInfo_open(vs -> bg_info[vs -> bg_count], NULL,
-		                         filename, AVTYPE_BG_IMAGE, begin, end);
+		bool added = AVInfo_open(vs -> bg_info[vs -> bg_count], filename,
+		                         AVTYPE_BG_IMAGE, begin, end, -1, -1);
 		if(added)
 		{
 			++(vs -> bg_count);
@@ -412,6 +412,12 @@ bool load_other_check_input(VisualScores *vs, char *cmd, char *filename, int *be
 
 void delete_file(VisualScores *vs, char *cmd)
 {
+	if(vs -> image_count == 0)
+	{
+		VS_print_log(IMAGE_NOT_LOADED);
+		return;
+	}
+	
 	AVType type;
 	int index;
 	bool valid = delete_file_check_input(vs, cmd, &type, &index);
@@ -454,7 +460,7 @@ void delete_file(VisualScores *vs, char *cmd)
 					--(vs -> audio_info[i] -> begin);
 				if(vs -> audio_info[i] -> end  >= index)
 					--(vs -> audio_info[i] -> end);
-				if(vs -> audio_info[i] -> begin <= index && vs -> audio_info[i] -> end >= index)
+				if(vs -> audio_info[i] -> begin <= index && vs -> audio_info[i] -> end > index)
 					in_range_of_audio = i;
 			}
 
@@ -517,7 +523,9 @@ void delete_file(VisualScores *vs, char *cmd)
 	}
 	
 	VS_print_log(FILE_DELETED);
-	settings(vs, "");
+	if(vs -> image_count != 0)
+		settings(vs, "");
+	else  printf("\n");
 }
 
 bool delete_file_check_input(VisualScores *vs, char *cmd, AVType *type, int *index)
@@ -568,6 +576,12 @@ bool delete_file_check_input(VisualScores *vs, char *cmd, AVType *type, int *ind
 
 void modify_file(VisualScores *vs, char *cmd)
 {
+	if(vs -> image_count == 0)
+	{
+		VS_print_log(IMAGE_NOT_LOADED);
+		return;
+	}
+	
 	AVType type;
 	int index, arg1, arg2;
 	bool valid = modify_file_check_input(vs, cmd, &type, &index, &arg1, &arg2);
@@ -736,6 +750,12 @@ bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type,
 
 void set_duration(VisualScores *vs, char *cmd)
 {
+	if(vs -> image_count == 0)
+	{
+		VS_print_log(IMAGE_NOT_LOADED);
+		return;
+	}
+	
 	int index;
 	double time;
 	bool valid = set_duration_check_input(vs, cmd, &index, &time);
@@ -744,7 +764,7 @@ void set_duration(VisualScores *vs, char *cmd)
 	int pos = vs -> image_pos[index - 1];
 	for(int i = 0; i < vs -> audio_count; ++i)
 	{
-		if(vs -> audio_info[i] -> begin <= pos && vs -> audio_info[i] -> end >= pos)
+		if(vs -> audio_info[i] -> begin - 1 <= pos && vs -> audio_info[i] -> end - 1 >= pos)
 		{
 			VS_print_log(CAN_NOT_SET_DURATION);
 			return;
