@@ -1,3 +1,8 @@
+/** 
+ * VisualScores source file: video.c
+ * Defines functions which deal with exporting video.
+ */
+
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,8 +14,6 @@
 #include <libavformat/avio.h>
 #include <libavutil/audio_fifo.h>
 #include <libavutil/pixfmt.h>
-#include <libswresample/swresample.h>
-#include <libswscale/swscale.h>
 
 #include "vslog.h"
 #include "visualscores.h"
@@ -176,7 +179,7 @@ bool write_image_track(VisualScores *vs)
 
 		total_time_to_cur_image += image_info -> duration;
 		int nb_frames = (double)(total_time_to_cur_image - total_time_to_prev_image) * VS_framerate;
-		int64_t begin_pts = total_time_to_prev_image * vs -> video_info -> codec_ctx -> time_base.den;
+		int64_t begin_pts = total_time_to_prev_image * vs -> video_info -> codec_ctx2 -> time_base.den;
 		if(!encode_image(vs -> video_info, begin_pts, nb_frames))
 		{
 			AVInfo_reopen_input(image_info);
@@ -196,6 +199,7 @@ bool write_audio_track(VisualScores *vs)
 		printf("\n");
 
 	int prev_min_begin = -1, min_begin = FILE_LIMIT, index = -1;
+	int64_t pts = 0, prev_end_pts = 0;
 	for(int i = 0; i < vs -> audio_count; ++i)
 	{
 		VS_print_log(WRITING_AUDIO_TRACK, i + 1, vs -> audio_count);
@@ -215,18 +219,18 @@ bool write_audio_track(VisualScores *vs)
 		double begin_time = 0.0;
 		for(int j = 0; j < vs -> audio_info[index] -> begin - 1; ++j)
 			begin_time += vs -> image_info[vs -> image_pos[j]] -> duration;
-		int64_t pts = begin_time * vs -> video_info -> codec_ctx2 -> time_base.den;
+		pts = begin_time * vs -> video_info -> codec_ctx -> time_base.den;
 
-		struct SwrContext *swr_ctx = swr_alloc();
-		if(!swr_ctx)
+		if(pts > prev_end_pts)
 		{
-			VS_print_log(INSUFFICIENT_MEMORY);
-			system("pause >nul 2>&1");
-			abort();
+			/* This may bring up to 21.3 ms of error -- acceptable. */
+			int nb_frames = (pts - prev_end_pts - 1) / 1024 + 1;
+			if(!write_blank_audio(vs -> video_info, prev_end_pts, nb_frames))
+				return false;
 		}
 		
 		AVAudioFifo *audio_fifo = av_audio_fifo_alloc(AV_SAMPLE_FMT_FLTP, 
-		                                              vs -> video_info -> codec_ctx2 -> channels, 1);
+		                                              vs -> video_info -> codec_ctx -> channels, 1);
 		if(!audio_fifo)
 		{
 			VS_print_log(INSUFFICIENT_MEMORY);
@@ -234,21 +238,19 @@ bool write_audio_track(VisualScores *vs)
 			abort();
 		}
 
-		if(!decode_audio_to_fifo(vs -> audio_info[index], vs -> video_info, audio_fifo, swr_ctx))
+		if(!decode_audio_to_fifo(vs -> audio_info[index], vs -> video_info, audio_fifo, AV_SAMPLE_FMT_FLTP))
 		{
-			swr_free(&swr_ctx);
 			AVInfo_reopen_input(vs -> audio_info[index]);
 			return false;
 		}
 
-		if(!encode_audio_from_fifo(vs -> video_info, audio_fifo, pts))
+		prev_end_pts = encode_audio_from_fifo(vs -> video_info, audio_fifo, pts, AV_SAMPLE_FMT_FLTP);
+		if(prev_end_pts == 0)
 		{
-			swr_free(&swr_ctx);
 			AVInfo_reopen_input(vs -> audio_info[index]);
 			return false;
 		}
-		
-		swr_free(&swr_ctx);
+
 		av_audio_fifo_free(audio_fifo);
 		av_packet_unref(vs -> video_info -> packet);
 		AVInfo_reopen_input(vs -> audio_info[index]);

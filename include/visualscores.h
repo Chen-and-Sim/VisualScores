@@ -1,3 +1,9 @@
+/** 
+ * VisualScores header file: visualscores.h
+ * Defines struct VisualScores, which contains three tracks of the video file.
+ * Declares function directly called by user input.
+ */
+
 #ifndef VISUALSCORES_H
 #define VISUALSCORES_H
 
@@ -88,10 +94,6 @@ extern bool set_duration_check_input(VisualScores *vs, char *cmd, int *index, do
 /* Partition an audio file and determine the duration of images in the range of the audio file. */
 extern void partition_audio(VisualScores *vs, char *cmd);
 extern bool partition_audio_check_input(VisualScores *vs, char *cmd, int *index);
-
-/* Open/Close default application to play music. */
-extern bool open_music_player(char *filename);
-extern void close_music_player();
 
 /* event processing functions */
 extern void do_painting(HWND hWnd, HBITMAP *hBitmap);

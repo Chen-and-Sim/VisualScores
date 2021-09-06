@@ -4,11 +4,12 @@ INCLUDES = -I../include/
 C_FLAGS = ${INCLUDES} -W -std=c11
 LIBS = -L../lib/ \
 -lavformat -lavcodec -lavdevice -lavfilter -lavutil -lswresample -lswscale \
--lbcrypt -lgdi32 -liconv -lm -lmfplat -lole32 -lpthread -lrt -lsecur32 -lstrmiids -lws2_32 -lz
+-lbcrypt -lgdi32 -liconv -lm -lmfplat -lole32 -lpthread -lrt -lsecur32 -lstrmiids -lwinmm -lws2_32 -lz
 
 CC = gcc.exe
 RM = rm.exe -f
-OBJ = tracks.o partition.o video.o visualscores.o avinfo.o vslog.o
+OBJ = tracks.o partition.o video.o visualscores.o codec.o avinfo.o vslog.o
+AV_INCLUDE_PATH = ../include/vslog.h ../include/avinfo.h
 VS_INCLUDE_PATH = ../include/vslog.h ../include/visualscores.h
 BIN = ../VisualScores.exe
 
@@ -25,7 +26,10 @@ $(BIN): $(OBJ)
 vslog.o: vslog.c ../include/vslog.h
 	$(CC) -c vslog.c -o vslog.o $(C_FLAGS)
 
-avinfo.o: avinfo.c ../include/avinfo.h
+codec.o: codec.c $(AV_INCLUDE_PATH)
+	$(CC) -c codec.c -o codec.o $(C_FLAGS)
+
+avinfo.o: avinfo.c $(AV_INCLUDE_PATH)
 	$(CC) -c avinfo.c -o avinfo.o $(C_FLAGS)
 
 tracks.o: tracks.c $(VS_INCLUDE_PATH)

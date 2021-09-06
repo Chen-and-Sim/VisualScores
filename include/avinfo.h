@@ -1,3 +1,8 @@
+/** 
+ * VisualScores header file: avinfo.h
+ * Defines struct AVInfo, which contains data for (de)muxing and (de)coding.
+ */
+
 #ifndef AVINFO_H
 #define AVINFO_H
 
@@ -20,14 +25,15 @@ typedef enum AVType
 	AVTYPE_AUDIO,
 	AVTYPE_BG_IMAGE,
 	AVTYPE_BMP,
+	AVTYPE_WAV,
 	AVTYPE_VIDEO
 } AVType;
 
 typedef struct AVInfo
 {
 	AVFormatContext *fmt_ctx;
-	AVCodecContext  *codec_ctx;   /* video codec context for video file */
-	AVCodecContext  *codec_ctx2;  /* audio codec context for video file */
+	AVCodecContext  *codec_ctx;   /* audio codec context for video_file */
+	AVCodecContext  *codec_ctx2;  /* video codec context for video file */
 	AVPacket *packet;
 	AVFrame  *frame;
 
@@ -72,6 +78,7 @@ extern bool AVInfo_open(AVInfo *av_info, char *filename, AVType type,
 /* Variable "fmt_short_name" is used to determine demuxers. */
 extern bool AVInfo_open_input(AVInfo *av_info, char *fmt_short_name);
 extern bool AVInfo_open_bmp(AVInfo *av_info);
+extern bool AVInfo_open_wav(AVInfo *av_info);
 extern bool AVInfo_open_video(AVInfo *av_info);
 
 /* Clear original data and open the file again. */
@@ -79,6 +86,9 @@ extern void AVInfo_reopen_input(AVInfo *av_info);
 
 /* Create a temporary bmp file in order to preview images in "partition_audio". */
 extern bool AVInfo_create_bmp(AVInfo *av_info);
+
+/* Create a temporary wav file for audition in "partition_audio". */
+extern bool AVInfo_create_wav(AVInfo *av_info);
 
 /* Put the frame "src" in the center of "dest". */
 extern void put_frame_to_center(AVFrame *dest, AVFrame *src);
@@ -99,12 +109,17 @@ extern bool mix_images(AVInfo *image_info, AVInfo **bg_info, AVFrame *frame1,
 /* Encode and write "video_info -> frame" "nb_frames" times. */
 extern bool encode_image(AVInfo *video_info, int64_t begin_pts, int nb_frames);
 
+/* Write blank data to audio track. */
+extern bool write_blank_audio(AVInfo *video_info, int64_t begin_pts, int nb_frames);
+
 /* Write raw data to FIFO. */
 extern bool AVInfo_write_to_fifo(AVAudioFifo *audio_fifo, AVFrame *frame);
 
 /* The whole decoding/encoding process. */
 extern bool decode_audio_to_fifo(AVInfo *audio_info, AVInfo *video_info,
-                                 AVAudioFifo *audio_fifo, struct SwrContext *swr_ctx);
-extern bool encode_audio_from_fifo(AVInfo *video_info, AVAudioFifo *audio_fifo, int64_t pts);
+                                 AVAudioFifo *audio_fifo, enum AVSampleFormat fmt);
+/* Return the final pts value of the whole audio. */
+extern int  encode_audio_from_fifo(AVInfo *video_info, AVAudioFifo *audio_fifo,
+                                   int64_t begin_pts, enum AVSampleFormat fmt);
 
 #endif /* AVINFO_H */

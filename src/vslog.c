@@ -1,3 +1,8 @@
+/** 
+ * VisualScores source file: vslog.c
+ * Defines output messages and functions.
+ */
+
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -12,6 +17,7 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"",
 		"ERROR: Insufficient memory. Program aborted.\n",
 		"Wrong command. Please check your input and try again.\n\n",
+		"VisualScores - Beta\n(c) 2021 Ji-woon Sim\n",
 		"Language has been switched to English.\n\n",
 		"You have to load an image first.\n\n",
 		"\nImage track:\n",
@@ -45,8 +51,10 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"This audio file does not need to partition.\n\n",
 		"Creating bmp files for display...\n",
 		"ERROR: Failed to create bmp files.\n\n",
-		"ERROR: No music player detected or you have not set default music player.\n\n",
+		"Creating wav file for audition...\n",
+		"ERROR: Failed to create wav file.\n\n",
 		"ERROR: Failed to display images.\n\n",
+		"ERROR: Failed to audition.\n\n",
 		"Music will be played in %d second(s)...\n",
 		"    You have partitioned the audio %d time(s). %d time(s) left.\n",
 		"\nTimed out. Please retry.\n\n",
@@ -62,6 +70,7 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"",
 		"错误：内存不足。程序已退出。\n",
 		"错误的指令。请检查输入后重试。\n\n",
+		"VisualScores - Beta\n(c) 2021 沈智云\n",
 		"语言已切换为中文。\n\n",
 		"您需要先载入一张图片。\n\n",
 		"\n图片轨：\n",
@@ -95,8 +104,10 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"该音频文件无需划分。\n\n",
 		"正在创建bmp预览图…\n",
 		"错误：无法创建bmp预览图。\n\n",
-		"错误：未检测到音乐播放器或您未设置默认音乐播放器。\n\n",
+		"正在创建wav音频…\n",
+		"错误：无法创建wav音频。\n\n",
 		"错误：无法预览图片。\n\n",
+		"错误：无法试听。\n\n",
 		"音乐将在%d秒后播放…\n",
 		"    您已经划分了%d次，剩余%d次。\n",
 		"\n已超时，请重试。\n\n",

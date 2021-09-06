@@ -1,3 +1,8 @@
+/** 
+ * VisualScores source file: partition.c
+ * Defines functions which deal with audio partitioning.
+ */
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,11 +45,11 @@ void partition_audio(VisualScores *vs, char *cmd)
 		}
 	}
 	
-	bool flag = open_music_player("_file\\blank.mp3");
-	if(!flag)
+	VS_print_log(CREATING_WAV);
+	if( !AVInfo_create_wav(vs -> audio_info[index - 1]) )
 	{
-		VS_print_log(NO_MUSIC_PLAYER_FOUND);
-		system("forfiles /P _file\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
+		VS_print_log(FAILED_TO_CREATE_WAV);
+		system("del _file\\audition.wav >nul 2>&1 ");
 		return;
 	}
 	
@@ -55,8 +60,8 @@ void partition_audio(VisualScores *vs, char *cmd)
 	if(hWnd == NULL)
 	{
 		VS_print_log(FAILED_TO_DISPLAY);
-		close_music_player();
 		system("forfiles /P _file\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
+		system("del _file\\audition.wav >nul 2>&1 ");
 		return;
 	}
 	
@@ -66,8 +71,8 @@ void partition_audio(VisualScores *vs, char *cmd)
 	{
 		VS_print_log(FAILED_TO_DISPLAY);
 		ShowWindow(hWnd, SW_HIDE);
-		close_music_player();
 		system("forfiles /P _file\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
+		system("del _file\\audition.wav >nul 2>&1 ");
 		return;
 	}
 	do_painting(hWnd, hBitmap);
@@ -81,10 +86,14 @@ void partition_audio(VisualScores *vs, char *cmd)
 	VS_print_log(COUNTDOWN, 1);
 	Sleep(1000);
 
-	open_music_player(vs -> audio_info[index - 1] -> filename);
-	ShowWindow(hWnd, SW_HIDE);
-	ShowWindow(hWnd, SW_HIDE);
-	ShowWindow(hWnd, SW_RESTORE);
+	if(!PlaySound("_file\\audition.wav", NULL, SND_FILENAME | SND_ASYNC))
+	{
+		VS_print_log(FAILED_TO_AUDITION);
+		system("forfiles /P _file\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
+		system("del _file\\audition.wav >nul 2>&1 ");
+		return;
+	}
+	
 	DeleteObject(*hBitmap);
 	RedrawWindow(hWnd, NULL, NULL, RDW_ERASE | RDW_INVALIDATE);
 	char *bmp_filename = vs -> image_info[vs -> image_pos[begin - 1]] -> bmp_filename;
@@ -92,8 +101,8 @@ void partition_audio(VisualScores *vs, char *cmd)
 	do_painting(hWnd, hBitmap);
 
 	int partition_count = 0;
-	/* We do 1/3 second of delay here. */
-	clock_t begin_time = clock() + CLOCKS_PER_SEC / 3;
+	/* We do 0.5 second of delay here. */
+	clock_t begin_time = clock() + CLOCKS_PER_SEC / 2;
 	clock_t prev_time = begin_time;
 	double rec_duration[FILE_LIMIT];
 	MSG msg;
@@ -161,27 +170,6 @@ bool partition_audio_check_input(VisualScores *vs, char *cmd, int *index)
 	return true;
 }
 
-bool open_music_player(char *filename)
-{
-	HINSTANCE ret = ShellExecute(NULL, "open", filename, NULL, NULL, SW_MINIMIZE);
-	/* In fact the window can not be minimized. */
-	if((INT_PTR)ret > 32)
-	{
-		ShowWindow(GetConsoleWindow(), SW_FORCEMINIMIZE);
-		ShowWindow(GetConsoleWindow(), SW_FORCEMINIMIZE);
-		ShowWindow(GetConsoleWindow(), SW_RESTORE);
-		return true;
-	}
-	else  return false;
-}
-
-/* We are unable to fetch the music player. */
-void close_music_player()
-{
-	system("taskkill /F /IM wmplayer.exe >nul 2>&1");
-	system("taskkill /F /IM Music.UI.exe >nul 2>&1");
-}
-
 void do_painting(HWND hWnd, HBITMAP *hBitmap)
 {
 	PAINTSTRUCT ps;
@@ -245,6 +233,8 @@ bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_
 	{
 		UnregisterHotKey(hWnd, ID_ESCAPE);
 		rec_duration[total_partition] = audio_duration - total_time;
+		if(rec_duration[0] < 0)
+			rec_duration[0] = 0.1;
 		for(int i = 0; i <= total_partition; ++i)
 			vs -> image_info[vs -> image_pos[i + audio_info -> begin - 1]] -> duration = rec_duration[i];
 		audio_info -> partitioned = true;
@@ -257,8 +247,9 @@ bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_
 void escape_pressed(HWND hWnd, HBITMAP *hBitmap)
 {
 	ShowWindow(hWnd, SW_HIDE);
-	close_music_player();
+	PlaySound(NULL, 0, 0);
 	system("forfiles /P _file\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
+	system("del _file\\audition.wav >nul 2>&1 ");
 	UnregisterHotKey(hWnd, ID_ENTER);
 	UnregisterHotKey(hWnd, ID_ESCAPE);
 	DeleteObject(*hBitmap);

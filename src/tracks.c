@@ -1,3 +1,8 @@
+/** 
+ * VisualScores source file: tracks.c
+ * Defines functions which add files to, or modify, delete files in the track.
+ */
+
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -811,7 +816,7 @@ bool set_duration_check_input(VisualScores *vs, char *cmd, int *index, double *t
 	}
 
 	*time = strtod(str_time, &pEnd);
-	if(*pEnd != '\0' || str_time[0] < '0' || str_time[0] > '9' || *time < 0.01)
+	if(*pEnd != '\0' || str_time[0] < '0' || str_time[0] > '9' || *time < 0.1)
 	{
 		VS_print_log(INVALID_INPUT);
 		return false;

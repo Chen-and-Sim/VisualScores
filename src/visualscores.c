@@ -1,3 +1,8 @@
+/** 
+ * VisualScores source file: visualscores.c
+ * Defines basic operations and the main function.
+ */
+
 #include <io.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -61,7 +66,7 @@ void VS_free(VisualScores *vs)
 
 void about(VisualScores *vs, char *cmd)
 {
-
+	VS_print_log(ABOUT);
 }
 
 void help(VisualScores *vs, char *cmd)

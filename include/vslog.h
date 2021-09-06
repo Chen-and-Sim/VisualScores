@@ -1,10 +1,15 @@
+/** 
+ * VisualScores header file: vslog.h
+ * Declares variables for output.
+ */
+
 #ifndef VSLOG_H
 #define VSLOG_H
 
 #include <stdbool.h>
 
 /* Note that here we have added 1 to the actual number of tags. */
-#define VS_LOG_COUNT 46
+#define VS_LOG_COUNT 49
 #define STRING_LIMIT 300  /* maximum length of a string */
 
 typedef enum Language
@@ -20,6 +25,7 @@ typedef enum VS_log_tag
 {
 	INSUFFICIENT_MEMORY = 1,
 	WRONG_COMMAND,
+	ABOUT,
 	SWITCH_LANGUAGE,
 	IMAGE_NOT_LOADED,
 	IMAGE_TRACK_HEAD,
@@ -53,8 +59,10 @@ typedef enum VS_log_tag
 	NEED_NO_PARTITION,
 	CREATING_BMP,
 	FAILED_TO_CREATE_BMP,
-	NO_MUSIC_PLAYER_FOUND,
+	CREATING_WAV,
+	FAILED_TO_CREATE_WAV,
 	FAILED_TO_DISPLAY,
+	FAILED_TO_AUDITION,
 	COUNTDOWN,
 	TIMES_PARTITIONED,
 	TIMED_OUT,
