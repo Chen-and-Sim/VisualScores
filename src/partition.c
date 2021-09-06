@@ -92,8 +92,8 @@ void partition_audio(VisualScores *vs, char *cmd)
 	do_painting(hWnd, hBitmap);
 
 	int partition_count = 0;
-	/* We do 0.5 second of delay here. */
-	clock_t begin_time = clock() + CLOCKS_PER_SEC / 2;
+	/* We do 1/3 second of delay here. */
+	clock_t begin_time = clock() + CLOCKS_PER_SEC / 3;
 	clock_t prev_time = begin_time;
 	double rec_duration[FILE_LIMIT];
 	MSG msg;
@@ -132,13 +132,16 @@ bool partition_audio_check_input(VisualScores *vs, char *cmd, int *index)
 	{
 		for(int i = 0; i < vs -> audio_count; ++i)
 		{
-			if(!vs -> audio_info[i] -> partitioned)
+			int begin = vs -> audio_info[i] -> begin;
+			int end = vs -> audio_info[i] -> end;
+			if(!vs -> audio_info[i] -> partitioned && begin != end)
 			{
 				*index = i + 1;
 				return true;
 			}
 		}
 		VS_print_log(ALL_AUDIO_PARTITIONED);
+		return false;
 	}
 	
 	if(cmd[0] != 'A' || cmd[1] < '0' || cmd[1] > '9')

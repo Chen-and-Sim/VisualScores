@@ -101,6 +101,7 @@ void export_video(VisualScores *vs, char *cmd)
 		if(vs -> bg_info[i] -> height > height)
 			height = vs -> bg_info[i] -> height;
 	}
+	/* It seems like swscale demand that width and height of the video file should be divisible by 4. */
 	width = width / 4 * 4;
 	height = height / 4 * 4;
 	
@@ -272,13 +273,26 @@ bool write_audio_track(VisualScores *vs)
 	if(vs -> audio_count > 0)
 		printf("\n");
 
+	int prev_min_begin = -1, min_begin = FILE_LIMIT, index = -1;
 	for(int i = 0; i < vs -> audio_count; ++i)
 	{
 		VS_print_log(WRITING_AUDIO_TRACK, i + 1, vs -> audio_count);
 
+		min_begin = FILE_LIMIT;
+		for(int j = 0; j < vs -> audio_count; ++j)
+		{
+			int begin = vs -> audio_info[j] -> begin;
+			if(begin < min_begin && begin > prev_min_begin)
+			{
+				min_begin = begin;
+				index = j;
+			}
+		}
+		prev_min_begin = min_begin;
+
 		double begin_time = 0.0;
-		for(int i = 0; i < vs -> audio_info[i] -> begin - 1; ++i)
-			begin_time += vs -> image_info[vs -> image_pos[i]] -> duration;
+		for(int j = 0; j < vs -> audio_info[index] -> begin - 1; ++j)
+			begin_time += vs -> image_info[vs -> image_pos[j]] -> duration;
 		int64_t pts = begin_time * vs -> video_info -> codec_ctx2 -> time_base.den;
 
 		struct SwrContext *swr_ctx = swr_alloc();
@@ -298,24 +312,24 @@ bool write_audio_track(VisualScores *vs)
 			abort();
 		}
 
-		if(!decode_audio_to_fifo(vs -> audio_info[i], vs -> video_info, audio_fifo, swr_ctx))
+		if(!decode_audio_to_fifo(vs -> audio_info[index], vs -> video_info, audio_fifo, swr_ctx))
 		{
 			swr_free(&swr_ctx);
-			AVInfo_reopen_input(vs -> audio_info[i]);
+			AVInfo_reopen_input(vs -> audio_info[index]);
 			return false;
 		}
 
 		if(!encode_audio_from_fifo(vs -> video_info, audio_fifo, &pts))
 		{
 			swr_free(&swr_ctx);
-			AVInfo_reopen_input(vs -> audio_info[i]);
+			AVInfo_reopen_input(vs -> audio_info[index]);
 			return false;
 		}
 		
 		swr_free(&swr_ctx);
 		av_audio_fifo_free(audio_fifo);
 		av_packet_unref(vs -> video_info -> packet);
-		AVInfo_reopen_input(vs -> audio_info[i]);
+		AVInfo_reopen_input(vs -> audio_info[index]);
 	}
 	
 	return true;

@@ -50,7 +50,7 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"Music will be played in %d second(s)...\n",
 		"    You have partitioned the audio %d time(s). %d time(s) left.\n",
 		"\nTimed out. Please retry.\n\n",
-		"\nSuccessfully partitioned audio.\nPress enter to close the display window and the music player.\n",
+		"\nSuccessfully partitioned audio.\nPress Enter to close the display window and the music player.\n",
 		
 		"The duration of image file I%d is not set.\n\n",
 		"Time limit exceeded. Failed to export video.\n\n",
