@@ -209,7 +209,7 @@ int main()
 	};
 	RegisterClassEx(&wc);
 
-	av_log_set_level(AV_LOG_QUIET); 
+	av_log_set_level(AV_LOG_QUIET);
 	VisualScores *vs = VS_init();
 
 	char null[1] = "";

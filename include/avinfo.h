@@ -9,6 +9,7 @@
 #include <libavutil/audio_fifo.h>
 #include <libavutil/file.h>
 #include <libswresample/swresample.h>
+#include <libswscale/swscale.h>
 
 extern const double VS_framerate;
 extern const int VS_samplerate;
@@ -37,6 +38,8 @@ typedef struct AVInfo
 	double duration;  /* in seconds; 3.0 by default; is negative if unspecified */
 	char *bmp_filename;  /* The name of bmp file for display. */
 
+	bool partitioned;  /* for audio track */
+
 	/**
 	 * for audio & background image track
 	 * The audio & background image file corresponds to the [Begin]-th to the [End]-th 
@@ -48,8 +51,6 @@ typedef struct AVInfo
 	/* for all types of file except audio file */
 	int width;
 	int height;
-	
-	bool partitioned;  /* for audio track */
 } AVInfo;
 
 /* You should always call this function when initializing an AVInfo object. */
@@ -79,12 +80,31 @@ extern void AVInfo_reopen_input(AVInfo *av_info);
 /* Create a temporary bmp file in order to preview images in "partition_audio". */
 extern bool AVInfo_create_bmp(AVInfo *av_info);
 
+/* Put the frame "src" in the center of "dest". */
+extern void put_frame_to_center(AVFrame *dest, AVFrame *src);
+
+/**
+  * Decode and convert "image_info -> packet" to "frame" in RGBA pixel format.
+  * Variable "width" and "height" are the width and height of the frame.
+  */
+extern bool decode_image(AVInfo *image_info, AVFrame *frame, int width, int height);
+
+/**
+  * Mix images on "frame1", and convert to YUV420P pixel format on frame2.
+  * Variable "pos" is the position of the image in the image track.
+  */
+extern bool mix_images(AVInfo *image_info, AVInfo **bg_info, AVFrame *frame1,
+                       AVFrame *frame2, int pos, int bg_count);
+
+/* Encode and write "video_info -> frame" "nb_frames" times. */
+extern bool encode_image(AVInfo *video_info, int64_t begin_pts, int nb_frames);
+
 /* Write raw data to FIFO. */
 extern bool AVInfo_write_to_fifo(AVAudioFifo *audio_fifo, AVFrame *frame);
 
 /* The whole decoding/encoding process. */
 extern bool decode_audio_to_fifo(AVInfo *audio_info, AVInfo *video_info,
                                  AVAudioFifo *audio_fifo, struct SwrContext *swr_ctx);
-extern bool encode_audio_from_fifo(AVInfo *video_info, AVAudioFifo *audio_fifo, int64_t *pts);
+extern bool encode_audio_from_fifo(AVInfo *video_info, AVAudioFifo *audio_fifo, int64_t pts);
 
 #endif /* AVINFO_H */

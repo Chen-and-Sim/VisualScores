@@ -724,7 +724,13 @@ bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type,
 			VS_print_log(INVALID_INPUT);
 			return false;
 		}
+		
 		*arg2 = -1;
+		if(strlen(str_arg2) != 0)
+		{
+			VS_print_log(INVALID_INPUT);
+			return false;
+		}
 	}
 	else
 	{

@@ -101,7 +101,7 @@ void export_video(VisualScores *vs, char *cmd)
 		if(vs -> bg_info[i] -> height > height)
 			height = vs -> bg_info[i] -> height;
 	}
-	/* It seems like swscale demand that width and height of the video file should be divisible by 4. */
+	/* It seems like swscale demands that width and height of the video file should be divisible by 4. */
 	width = width / 4 * 4;
 	height = height / 4 * 4;
 	
@@ -151,120 +151,42 @@ void export_video(VisualScores *vs, char *cmd)
 
 bool write_image_track(VisualScores *vs)
 {
-	struct SwsContext *sws_ctx = sws_alloc_context();
-	if(!sws_ctx)
-	{
-		VS_print_log(INSUFFICIENT_MEMORY);
-		system("pause >nul 2>&1");
-		abort();
-	}
-	
 	double total_time_to_prev_image = 0.0, total_time_to_cur_image = 0.0;
 	for(int i = 0; i < vs -> image_count; ++i)
 	{
 		VS_print_log(WRITING_IMAGE_TRACK, i + 1, vs -> image_count);
-		
-		vs -> video_info -> frame -> format = AV_PIX_FMT_YUV420P;
-		vs -> video_info -> frame -> width  = vs -> video_info -> width;
-		vs -> video_info -> frame -> height = vs -> video_info -> height;
-		if(av_frame_get_buffer(vs -> video_info -> frame, 0) < 0)
-		{
-			VS_print_log(INSUFFICIENT_MEMORY);
-			system("pause >nul 2>&1");
-			abort();
-		}
 
 		AVInfo *image_info = vs -> image_info[vs -> image_pos[i]];
-		if(av_read_frame(image_info -> fmt_ctx, image_info -> packet) < 0)
+		AVFrame *image_frame = av_frame_alloc();
+		if(!decode_image(image_info, image_frame, vs -> video_info -> width, vs -> video_info -> height))
 		{
+			av_frame_free(&image_frame);
 			AVInfo_reopen_input(image_info);
 			return false;
 		}
 
-		while(true)
+		if(!mix_images(image_info, vs -> bg_info, image_frame, vs -> video_info -> frame,
+		               vs -> image_pos[i], vs -> bg_count))
 		{
-			int ret1 = avcodec_send_packet(image_info -> codec_ctx, image_info -> packet) < 0;
-			if(ret1 < 0 && ret1 != AVERROR(EAGAIN) && ret1 != AVERROR_EOF)
-			{
-				AVInfo_reopen_input(image_info);
-				return false;
-			}
-
-			int ret2 = avcodec_receive_frame(image_info -> codec_ctx, image_info -> frame);
-			if(ret2 == AVERROR(EAGAIN))
-				continue;
-			else if(ret2 == AVERROR_EOF || ret2 == 0)
-				break;
-			else if(ret2 < 0)
-			{
-				AVInfo_reopen_input(image_info);
-				return false;
-			}
-		}
-
-		sws_ctx = sws_getCachedContext(sws_ctx, image_info -> frame -> width, image_info -> frame -> height,
-		                               (enum AVPixelFormat)image_info -> frame -> format,
-		                               vs -> video_info -> width, vs -> video_info -> height,
-												 AV_PIX_FMT_YUV420P, SWS_LANCZOS, 0, 0, 0);
-		if(!sws_ctx)
-		{
+			av_frame_free(&image_frame);
 			AVInfo_reopen_input(image_info);
 			return false;
 		}
- 
-		sws_scale(sws_ctx, (const uint8_t * const *)image_info -> frame -> data,
-		          image_info -> frame -> linesize, 0, image_info -> frame -> height,
-		          (uint8_t * const *)vs -> video_info -> frame -> data, vs -> video_info -> frame -> linesize);
+		av_frame_free(&image_frame);
 
 		total_time_to_cur_image += image_info -> duration;
 		int nb_frames = (double)(total_time_to_cur_image - total_time_to_prev_image) * VS_framerate;
-
-		for(int frame = 0; frame < nb_frames; ++frame)
+		int64_t begin_pts = total_time_to_prev_image * vs -> video_info -> codec_ctx -> time_base.den;
+		if(!encode_image(vs -> video_info, begin_pts, nb_frames))
 		{
-			while(true)
-			{
-				int ret3 = avcodec_send_frame(vs -> video_info -> codec_ctx, vs -> video_info -> frame);
-				if(ret3 < 0 && ret3 != AVERROR(EAGAIN) && ret3 != AVERROR_EOF)
-				{
-					sws_freeContext(sws_ctx);
-					AVInfo_reopen_input(image_info);
-					return false;
-				}
-
-				int ret4 = avcodec_receive_packet(vs -> video_info -> codec_ctx, vs -> video_info -> packet);
-				if(ret4 == AVERROR(EAGAIN))
-					continue;
-				else if(ret4 == AVERROR_EOF || ret4 == 0)
-					break;
-				else if(ret4 < 0)
-				{
-					sws_freeContext(sws_ctx);
-					AVInfo_reopen_input(image_info);
-					return false;
-				}
-			}
-
-			vs -> video_info -> packet -> stream_index = 0;
-			vs -> video_info -> packet -> pts = total_time_to_prev_image * vs -> video_info -> codec_ctx -> time_base.den + frame * 1000;
-			vs -> video_info -> packet -> dts = vs -> video_info -> packet -> pts;
-			vs -> video_info -> packet -> duration = 1000;
-			vs -> video_info -> packet -> pos = -1;
-
-			if(av_write_frame(vs -> video_info -> fmt_ctx, vs -> video_info -> packet) < 0)
-			{
-				sws_freeContext(sws_ctx);
-				AVInfo_reopen_input(image_info);
-				return false;
-			}
-			av_packet_unref(vs -> video_info -> packet);
+			AVInfo_reopen_input(image_info);
+			return false;
 		}
 
 		total_time_to_prev_image += (nb_frames / VS_framerate);
 		av_frame_unref(vs -> video_info -> frame);
 		AVInfo_reopen_input(image_info);
 	}
-	
-	sws_freeContext(sws_ctx);
 	return true;
 }
 
@@ -319,7 +241,7 @@ bool write_audio_track(VisualScores *vs)
 			return false;
 		}
 
-		if(!encode_audio_from_fifo(vs -> video_info, audio_fifo, &pts))
+		if(!encode_audio_from_fifo(vs -> video_info, audio_fifo, pts))
 		{
 			swr_free(&swr_ctx);
 			AVInfo_reopen_input(vs -> audio_info[index]);
