@@ -816,7 +816,7 @@ bool set_duration_check_input(VisualScores *vs, char *cmd, int *index, double *t
 	}
 
 	*time = strtod(str_time, &pEnd);
-	if(*pEnd != '\0' || str_time[0] < '0' || str_time[0] > '9' || *time < 0.1)
+	if(*pEnd != '\0' || str_time[0] < '0' || str_time[0] > '9' || *time < 0.05 || *time > TIME_LIMIT)
 	{
 		VS_print_log(INVALID_INPUT);
 		return false;

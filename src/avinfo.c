@@ -12,7 +12,7 @@
 #include "avinfo.h"
 #include "vslog.h"
 
-const double VS_framerate = 30.0;
+const double VS_framerate = 50.0;
 const int VS_samplerate = 44100;
 
 AVInfo *AVInfo_init()
@@ -476,7 +476,6 @@ bool AVInfo_open_video(AVInfo *av_info)
 	av_info -> codec_ctx2 -> framerate = (AVRational){(int)VS_framerate, 1};
 	av_info -> codec_ctx2 -> has_b_frames = 0;
 	av_info -> codec_ctx2 -> max_b_frames = 0;
-	av_info -> codec_ctx2 -> gop_size = 0;
 	if(av_info -> fmt_ctx -> oformat -> flags & AVFMT_GLOBALHEADER)
 		av_info -> codec_ctx2 -> flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
