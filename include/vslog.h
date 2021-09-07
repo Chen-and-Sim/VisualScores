@@ -9,7 +9,7 @@
 #include <stdbool.h>
 
 /* Note that here we have added 1 to the actual number of tags. */
-#define VS_LOG_COUNT 49
+#define VS_LOG_COUNT 50
 #define STRING_LIMIT 300  /* maximum length of a string */
 
 typedef enum Language
@@ -64,6 +64,7 @@ typedef enum VS_log_tag
 	FAILED_TO_DISPLAY,
 	FAILED_TO_AUDITION,
 	COUNTDOWN,
+	BEGIN_PARTITION,
 	TIMES_PARTITIONED,
 	TIMED_OUT,
 	PARTITION_COMPLETE,

@@ -99,7 +99,7 @@ extern bool partition_audio_check_input(VisualScores *vs, char *cmd, int *index)
 extern void do_painting(HWND hWnd, HBITMAP *hBitmap);
 /* This function returns true if we want to exit the message loop. */
 extern bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_info,
-                          int *partition_count, clock_t begin_time, clock_t *prev_time, double *rec_duration);
+                          int *partition_count, clock_t *begin_time, clock_t *prev_time, double *rec_duration);
 extern void escape_pressed(HWND hWnd, HBITMAP *hBitmap);
 
 /* Discard the partition done to an audio file. */

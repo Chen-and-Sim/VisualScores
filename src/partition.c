@@ -100,10 +100,8 @@ void partition_audio(VisualScores *vs, char *cmd)
 	*hBitmap = LoadImage(NULL, bmp_filename, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 	do_painting(hWnd, hBitmap);
 
-	int partition_count = 0;
-	/* We do 0.5 second of delay here. */
-	clock_t begin_time = clock() + CLOCKS_PER_SEC / 2;
-	clock_t prev_time = begin_time;
+	int partition_count = -1;
+	clock_t begin_time = 0, prev_time = 0;
 	double rec_duration[FILE_LIMIT];
 	MSG msg;
 	
@@ -121,7 +119,7 @@ void partition_audio(VisualScores *vs, char *cmd)
 				if(msg.wParam == ID_ENTER)
 				{
 					bool ret = enter_pressed(hWnd, hBitmap, vs, vs -> audio_info[index - 1],
-					                         &partition_count, begin_time, &prev_time, rec_duration);
+					                         &partition_count, &begin_time, &prev_time, rec_duration);
 					if(ret)  return;
 				}
 				else if(msg.wParam == ID_ESCAPE)
@@ -194,7 +192,7 @@ void do_painting(HWND hWnd, HBITMAP *hBitmap)
 }
 
 bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_info,
-                   int *partition_count, clock_t begin_time, clock_t *prev_time, double *rec_duration)
+                   int *partition_count, clock_t *begin_time, clock_t *prev_time, double *rec_duration)
 {
 	int total_partition = audio_info -> end - audio_info -> begin;
 	if(*partition_count == total_partition)
@@ -202,6 +200,16 @@ bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_
 		escape_pressed(hWnd, hBitmap);
 		settings(vs, "");
 		return true;
+	}
+	
+	if(*partition_count == -1)
+	{
+		++(*partition_count);
+		VS_print_log(BEGIN_PARTITION);
+		/* We leave 0.2 second of (extra) reaction time. */
+		*begin_time = clock() - CLOCKS_PER_SEC / 5;
+		*prev_time = *begin_time;
+		return false;
 	}
 	
 	++(*partition_count);
@@ -221,7 +229,7 @@ bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_
 		return true;
 	}
 
-	double total_time = ((cur_time - begin_time) / (double)CLOCKS_PER_SEC);
+	double total_time = ((cur_time - *begin_time) / (double)CLOCKS_PER_SEC);
 	double audio_duration = (audio_info -> fmt_ctx -> duration) / 1E6;
 	if(total_time > audio_duration)
 	{
@@ -233,8 +241,6 @@ bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_
 	{
 		UnregisterHotKey(hWnd, ID_ESCAPE);
 		rec_duration[total_partition] = audio_duration - total_time;
-		if(rec_duration[0] < 0)
-			rec_duration[0] = 0.1;
 		for(int i = 0; i <= total_partition; ++i)
 			vs -> image_info[vs -> image_pos[i + audio_info -> begin - 1]] -> duration = rec_duration[i];
 		audio_info -> partitioned = true;
