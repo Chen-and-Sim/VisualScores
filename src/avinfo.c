@@ -71,7 +71,7 @@ bool AVInfo_open(AVInfo *av_info, char *filename, AVType type,
 		case AVTYPE_IMAGE:
 		{
 			char *pch = strrchr(av_info -> filename, '\\');
-			sprintf(av_info -> bmp_filename, "_file\\_display_%s.bmp", pch + 1);
+			sprintf(av_info -> bmp_filename, "resource\\_display_%s.bmp", pch + 1);
 			break;
 		}
 		case AVTYPE_BMP:

@@ -197,6 +197,10 @@ int main()
 	int screen_h = GetSystemMetrics(SM_CYSCREEN);
 	SetWindowPos(GetConsoleWindow(), HWND_TOP, screen_w * 0.05, screen_h * 0.25,
 	             screen_w * 0.5, screen_h * 0.5, 0);
+	HANDLE hIcon = LoadImage((HINSTANCE)GetModuleHandle(NULL), "resource\\visualscores.ico",
+	                         IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
+	SendMessage(GetConsoleWindow(), WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
+	SendMessage(GetConsoleWindow(), WM_SETICON, ICON_BIG, (LPARAM)hIcon);
 	
 	WNDCLASSEX wc = {
 		.cbSize = sizeof(WNDCLASSEX),
@@ -205,7 +209,7 @@ int main()
 		.cbClsExtra = 0,
 		.cbWndExtra = 0,
 		.hInstance = (HINSTANCE)GetModuleHandle(NULL),
-		.hIcon = NULL,
+		.hIcon = hIcon,
 		.hCursor = LoadCursor(0, IDC_ARROW),
 		.hbrBackground = (HBRUSH)COLOR_WINDOW,
 		.lpszMenuName = NULL,

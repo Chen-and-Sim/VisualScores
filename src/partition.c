@@ -40,7 +40,7 @@ void partition_audio(VisualScores *vs, char *cmd)
 		if( !AVInfo_create_bmp(vs -> image_info[vs -> image_pos[i]]) )
 		{
 			VS_print_log(FAILED_TO_CREATE_BMP);
-			system("forfiles /P _file\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
+			system("forfiles /P resource\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
 			return;
 		}
 	}
@@ -49,7 +49,7 @@ void partition_audio(VisualScores *vs, char *cmd)
 	if( !AVInfo_create_wav(vs -> audio_info[index - 1]) )
 	{
 		VS_print_log(FAILED_TO_CREATE_WAV);
-		system("del _file\\audition.wav >nul 2>&1 ");
+		system("del resource\\audition.wav >nul 2>&1 ");
 		return;
 	}
 	
@@ -60,19 +60,19 @@ void partition_audio(VisualScores *vs, char *cmd)
 	if(hWnd == NULL)
 	{
 		VS_print_log(FAILED_TO_DISPLAY);
-		system("forfiles /P _file\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
-		system("del _file\\audition.wav >nul 2>&1 ");
+		system("forfiles /P resource\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
+		system("del resource\\audition.wav >nul 2>&1 ");
 		return;
 	}
 	
 	HBITMAP* hBitmap = malloc(sizeof(HBITMAP));
-	*hBitmap = LoadImage(NULL, "_file\\blank.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+	*hBitmap = LoadImage(NULL, "resource\\blank.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 	if(*hBitmap == NULL)
 	{
 		VS_print_log(FAILED_TO_DISPLAY);
 		ShowWindow(hWnd, SW_HIDE);
-		system("forfiles /P _file\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
-		system("del _file\\audition.wav >nul 2>&1 ");
+		system("forfiles /P resource\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
+		system("del resource\\audition.wav >nul 2>&1 ");
 		return;
 	}
 	do_painting(hWnd, hBitmap);
@@ -86,11 +86,11 @@ void partition_audio(VisualScores *vs, char *cmd)
 	VS_print_log(COUNTDOWN, 1);
 	Sleep(1000);
 
-	if(!PlaySound("_file\\audition.wav", NULL, SND_FILENAME | SND_ASYNC))
+	if(!PlaySound("resource\\audition.wav", NULL, SND_FILENAME | SND_ASYNC))
 	{
 		VS_print_log(FAILED_TO_AUDITION);
-		system("forfiles /P _file\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
-		system("del _file\\audition.wav >nul 2>&1 ");
+		system("forfiles /P resource\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
+		system("del resource\\audition.wav >nul 2>&1 ");
 		return;
 	}
 	
@@ -248,8 +248,8 @@ void escape_pressed(HWND hWnd, HBITMAP *hBitmap)
 {
 	ShowWindow(hWnd, SW_HIDE);
 	PlaySound(NULL, 0, 0);
-	system("forfiles /P _file\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
-	system("del _file\\audition.wav >nul 2>&1 ");
+	system("forfiles /P resource\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
+	system("del resource\\audition.wav >nul 2>&1 ");
 	UnregisterHotKey(hWnd, ID_ENTER);
 	UnregisterHotKey(hWnd, ID_ESCAPE);
 	DeleteObject(*hBitmap);

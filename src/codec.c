@@ -147,7 +147,7 @@ bool AVInfo_create_bmp(AVInfo *av_info)
 bool AVInfo_create_wav(AVInfo *av_info)
 {
 	AVInfo* wav_info = AVInfo_init();
-	if(!AVInfo_open(wav_info, "_file\\audition.wav", AVTYPE_WAV, -1, -1, -1, -1))
+	if(!AVInfo_open(wav_info, "resource\\audition.wav", AVTYPE_WAV, -1, -1, -1, -1))
 	{
 		AVInfo_free(wav_info);
 		return false;
@@ -416,7 +416,7 @@ bool encode_image(AVInfo *video_info, int64_t begin_pts, int nb_frames)
 bool write_blank_audio(AVInfo *video_info, int64_t begin_pts, int nb_frames)
 {
 	AVInfo *blank_audio_info = AVInfo_init();
-	if(!AVInfo_open(blank_audio_info, "_file\\blank.aac", AVTYPE_AUDIO, -1, -1, -1, -1))
+	if(!AVInfo_open(blank_audio_info, "resource\\blank.aac", AVTYPE_AUDIO, -1, -1, -1, -1))
 	{
 		AVInfo_free(blank_audio_info);
 		return false;

@@ -7,8 +7,10 @@ LIBS = -L../lib/ \
 -lbcrypt -lgdi32 -liconv -lm -lmfplat -lole32 -lpthread -lrt -lsecur32 -lstrmiids -lwinmm -lws2_32 -lz
 
 CC = gcc.exe
+WINDRES  = windres.exe
+RES = ../resource/resource.res
 RM = rm.exe -f
-OBJ = tracks.o partition.o video.o visualscores.o codec.o avinfo.o vslog.o
+OBJ = tracks.o partition.o video.o visualscores.o codec.o avinfo.o vslog.o $(RES)
 AV_INCLUDE_PATH = ../include/vslog.h ../include/avinfo.h
 VS_INCLUDE_PATH = ../include/vslog.h ../include/visualscores.h
 BIN = ../VisualScores.exe
@@ -21,7 +23,7 @@ clean: clean-custom
 	${RM} $(OBJ) $(BIN)
 
 $(BIN): $(OBJ)
-	$(CC) $(OBJ) -o ../VisualScores.exe $(LIBS)
+	$(CC) $(OBJ) -o $(BIN) $(LIBS)
 
 vslog.o: vslog.c ../include/vslog.h
 	$(CC) -c vslog.c -o vslog.o $(C_FLAGS)
@@ -43,3 +45,6 @@ video.o: video.c $(VS_INCLUDE_PATH)
 
 visualscores.o: visualscores.c $(VS_INCLUDE_PATH)
 	$(CC) -c visualscores.c -o visualscores.o $(C_FLAGS)
+	
+$(RES): ../resource/resource.rc
+	$(WINDRES) -i ../resource/resource.rc --input-format=rc -o $(RES) -O coff 
