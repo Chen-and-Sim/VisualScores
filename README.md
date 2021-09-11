@@ -7,4 +7,4 @@ VisualScores<br/>
 VisualScores<br/>
 Minimalist video maker -- simplify your music score video making process!<br/>
 Please unzip the file in folder *lib* before compiling.<br/>
-The user manual is in the folder *manual*.
+The user manual is in folder *manual*.

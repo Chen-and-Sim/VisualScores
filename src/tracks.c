@@ -4,6 +4,7 @@
  */
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -754,6 +755,83 @@ bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type,
 			VS_print_log(INVALID_INPUT);
 			return false;
 		}
+	}
+
+	return true;
+}
+
+void set_repetition(VisualScores *vs, char *cmd)
+{
+	if(vs -> image_count == 0)
+	{
+		VS_print_log(IMAGE_NOT_LOADED);
+		return;
+	}
+	
+	int begin, end, times;
+	bool valid = set_repetition_check_input(vs, cmd, &begin, &end, &times);
+	if(!valid)  return;
+	
+	muted = true;
+	char new_cmd[STRING_LIMIT];
+	for(int i = 2; i <= times; ++i)
+	{
+		for(int j = end - 1; j >= begin - 1; --j)
+		{
+			sprintf(new_cmd, "%s %d", vs -> image_info[vs -> image_pos[j]] -> filename, end);
+			load(vs, new_cmd);
+		}
+	}
+	
+	muted = false;
+	VS_print_log(REPETITION_SET);
+	settings(vs, "");
+}
+
+bool set_repetition_check_input(VisualScores *vs, char *cmd, int *begin, int *end, int *times)
+{
+	char str_begin[10], str_end[10], str_times[10];
+	size_t pos1 = 0, pos2 = 0;
+	while(pos1 < strlen(cmd) && cmd[pos1] != ' ')
+		++pos1;
+	strncpy(str_begin, cmd, pos1);
+	str_begin[pos1] = '\0';
+	
+	char *pEnd;
+	*begin = strtol(str_begin, &pEnd, 10);
+	if(str_begin[0] < '0' || str_begin[0] > '9' || *pEnd != '\0' ||
+	   *begin <= 0 || *begin > vs -> image_count)
+	{
+		VS_print_log(INVALID_INPUT);
+		return false;
+	}
+
+	while(pos1 < strlen(cmd) && cmd[pos1] == ' ')
+		++pos1;
+	pos2 = pos1;
+	while(pos2 < strlen(cmd) && cmd[pos2] != ' ')
+		++pos2;
+	strncpy(str_end, cmd + pos1, pos2 - pos1);
+	str_end[pos2 - pos1] = '\0';
+
+	*end = strtol(str_end, &pEnd, 10);
+	if(str_end[0] < '0' || str_end[0] > '9' || *pEnd != '\0' ||
+	   *end < *begin || *end > vs -> image_count)
+	{
+		VS_print_log(INVALID_INPUT);
+		return false;
+	}
+
+	while(pos2 < strlen(cmd) && cmd[pos2] == ' ')
+		++pos2;
+	strcpy(str_times, cmd + pos2);
+	*times = strtol(str_times, &pEnd, 10);
+	int times_max = (FILE_LIMIT - vs -> image_count) / (*end - *begin + 1) + 1;
+	if(str_times[0] < '0' || str_times[0] > '9' || 
+	   *pEnd != '\0' || *times < 0 || *times > times_max)
+	{
+		VS_print_log(FILE_LIMIT_EXCEEDED3);
+		return false;
 	}
 
 	return true;

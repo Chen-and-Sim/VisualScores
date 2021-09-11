@@ -18,6 +18,7 @@
 #include "vslog.h"
 #include "visualscores.h"
 
+/* Add more extensions here later. */
 bool has_video_ext(char *filename)
 {
 	char *ext = strrchr(filename, '.');
@@ -25,7 +26,7 @@ bool has_video_ext(char *filename)
 		return false;
 	else  ++ext;
 
-	const char video_ext[2][5] = {"mov", "mp4"};
+	const char video_ext[1][5] = {"mp4"};
 	for(int i = 0; i < 4; ++i)
 		if(strcmp(ext, video_ext[i]) == 0)
 			return true;
@@ -58,6 +59,10 @@ void get_video_filename(char *dest, char *src)
 		}
 		else  strcpy(dest, src);
 	}
+/* Temporary added because now we only support .mp4 files. */
+	char *pch = strrchr(dest, '.');
+	if(pch == NULL)
+		strcat(dest, ".mp4");
 }
 
 void export_video(VisualScores *vs, char *cmd)

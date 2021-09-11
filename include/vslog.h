@@ -9,7 +9,7 @@
 #include <stdbool.h>
 
 /* Note that here we have added 1 to the actual number of tags. */
-#define VS_LOG_COUNT 50
+#define VS_LOG_COUNT 52
 #define STRING_LIMIT 300  /* maximum length of a string */
 
 typedef enum Language
@@ -38,6 +38,7 @@ typedef enum VS_log_tag
 	
 	FILE_LIMIT_EXCEEDED,
 	FILE_LIMIT_EXCEEDED2,
+	FILE_LIMIT_EXCEEDED3,
 	INVALID_INPUT,
 	NO_PERMISSION,
 	UNSUPPORTED_EXTENSION,
@@ -51,6 +52,7 @@ typedef enum VS_log_tag
 	ANOTHER_FILE_DELETED,
 	FILE_DELETED,
 	FILE_MODIFIED,
+	REPETITION_SET,
 	CAN_NOT_SET_DURATION,
 	DURATION_SET,
 

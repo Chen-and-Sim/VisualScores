@@ -30,6 +30,7 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 
 		"File limit exceeded. Failed to load file.\n\n",
 		"Warning: file limit exceeded. Loading stopped.\n",
+		"File limit will exceed after repetition. Please reduce your repetition times.\n\n",
 		"Invalid input. Please check your input and try again.\n\n",
 		"The file/folder does not exist or it does not have read/write permission.\n\n",
 		"The filename does not contain an extension or the extension is not supported.\n\n",
@@ -43,6 +44,7 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"Warning: file %s is also deleted.\n",
 		"Successfully deleted file.\n",
 		"Successfully modified file.\n",
+		"Successfullt set repetition times.\n",
 		"The duration of the image file can not be changed since it is in the range of an audio file.\n\n",
 		"Successfully set duration.\n",
 
@@ -84,6 +86,7 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 
 		"超过文件数量上限。载入失败。\n\n",
 		"警告：超过文件数量上限。停止载入。\n\n",
+		"反复后将达到文件数量上限，请减少反复次数。\n\n",
 		"输入错误。请检查输入后重试。\n\n",
 		"文件（夹）不存在或无读写权限。\n\n",
 		"文件名不包含后缀或不支持此后缀名。\n\n",
@@ -97,6 +100,7 @@ const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT] = {
 		"警告：文件 %s 也被删除。\n",
 		"成功删除文件。\n",
 		"成功修改文件。\n",
+		"成功设置反复次数。\n",
 		"无法改变该图片文件的时长，因为它在某个音频文件的范围中。\n\n",
 		"成功设置时长。\n",
 

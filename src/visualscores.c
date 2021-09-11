@@ -9,18 +9,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
-
+ 
 #include "vslog.h"
 #include "visualscores.h"
 
 const char short_command[COMMAND_COUNT][5] =
-	{"-a", "-h", "-l", "-q", "-x", "-i", "-I", "-o", "-d", "-m", "-t", "-p", "-D", "-e"};
+	{"-a", "-h", "-l", "-q", "-x", "-i", "-I", "-o", "-d", "-m", "-r", "-t", "-p", "-D", "-e"};
 const char long_command[COMMAND_COUNT][10] =
-	{"about",     "help",   "language", "quit",     "settings",  "load",    "loadall",
-	 "loadother", "delete", "modify",   "duration", "partition", "discard", "export"};
+	{"about",  "help",   "language", "quit",     "settings",  "load",    "loadall", "loadother",
+	 "delete", "modify", "repeat",   "duration", "partition", "discard", "export"};
 void (*functions[COMMAND_COUNT]) (VisualScores *, char *) =
 	{about, help, switch_language, quit, settings, load, load_all, load_other, delete_file,
-	 modify_file, set_duration, partition_audio, discard_partition, export_video};
+	 modify_file, set_repetition, set_duration, partition_audio, discard_partition, export_video};
 
 VisualScores *VS_init()
 {
@@ -90,6 +90,9 @@ void help(VisualScores *vs, char *cmd)
 				 "    Delete the file tagged <Tag>.\n"
 				 "-m <Tag> <...>             modify <Tag> <...>\n"
 				 "    Modify the file tagged <Tag>.\n"
+				 "-r <Begin> <End> <Times>   repeat <Begin> <End> <Times>\n"
+				 "    Set the number of repetition times of images from <Begin> to <End> in\n"
+				 "    the image track to <Times> times.\n"
 				 "-t <Tag> <Time>            duration <Tag> <Time>\n"
 				 "    Set the duration of an image file not in the range of any audio file.\n\n"
 				 "-p [Tag]                   partition [Tag]\n"
@@ -119,6 +122,8 @@ void help(VisualScores *vs, char *cmd)
 				 "    删除标签为 <Tag> 的文件。\n"
 				 "-m <Tag> <...>             modify <Tag> <...>\n"
 				 "    修改标签为 <Tag> 的文件。\n"
+				 "-r <Begin> <End> <Times>   repeat <Begin> <End> <Times>\n"
+				 "    将 <Begin> 至 <End> 范围内的图片设置重复次数 <Times> 次。\n"
 				 "-t <Tag> <Time>            duration <Tag> <Time>\n"
 				 "    设置不在任何一个音频范围内的图片的时长。\n\n"
 				 "-p [Tag]                   partition [Tag]\n"

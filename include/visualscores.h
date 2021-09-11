@@ -38,7 +38,7 @@ typedef struct VisualScores
 } VisualScores;
 
 /* name of commands and corrsponding functions */
-#define COMMAND_COUNT 14
+#define COMMAND_COUNT 15
 extern const char short_command[COMMAND_COUNT][5];
 extern const char long_command[COMMAND_COUNT][10];
 extern void (*functions[COMMAND_COUNT]) (VisualScores *, char *);
@@ -83,6 +83,10 @@ extern bool delete_file_check_input(VisualScores *vs, char *cmd, AVType *type, i
 extern void modify_file(VisualScores *vs, char *cmd);
 extern bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type, 
                                     int *index, int *arg1, int *arg2);
+
+/* Set the number of repetition of images. */
+extern void set_repetition(VisualScores *vs, char *cmd);
+extern bool set_repetition_check_input(VisualScores *vs, char *cmd, int *begin, int *end, int *times);
 
 /* Set the duration of an image file not in the range of any audio file. */
 extern void set_duration(VisualScores *vs, char *cmd);
