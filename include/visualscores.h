@@ -13,15 +13,19 @@
 
 #include "avinfo.h"
 
-#define FILE_LIMIT 200  /* maximum number of files in each track */
+#define FILE_LIMIT 300  /* maximum number of files in each track */
 #define TIME_LIMIT 10000  /* maximum length of the video file */
 
+/**
+ * ALWAYS NOTICE THAT THE INDEX OF USER INPUT AND TAG STARTS FROM 1, BUT THE
+ * INDEX OF ALL VARIABLES IN A VISUALSCORES OBJECT STARTS FROM 0.
+ */
 typedef struct VisualScores
 {
 	AVInfo **image_info;  /* image track */
 	AVInfo **audio_info;  /* audio track */
 	AVInfo **bg_info;     /* background image track */
-	AVInfo  *video_info;
+	AVInfo  *video_info;  /* video file */
 
 	int image_count;
 	int audio_count;
@@ -31,10 +35,11 @@ typedef struct VisualScores
 	 * This variable gives the position of image files in "image_info" in the 
 	 * order of the image track.
 	 * For example, we have n image files "a_1.png", "a_2.png", ... , "a_n.png"
-	 * loaded in "image_info", and the i-th image in the image track is "a_j.png".
-	 * In this case, image_pos[i] = j.
+	 * loaded in "image_info", and the i-th image in the image track (or the 
+	 * image tagged Ii) is "a_j.png". In this case, image_pos[i - 1] = j.
 	 */
 	int *image_pos;
+
 } VisualScores;
 
 /* name of commands and corrsponding functions */
@@ -57,8 +62,14 @@ extern void quit(VisualScores *vs, char *cmd);
 extern void settings(VisualScores *vs, char *cmd);
 
 /**
- * Return true if the extension of the filename matches one of the
- * extensions we support; otherwise return false.
+ * Used in partition ond video export. Records the correct indexes of image files after 
+ * repeating to 'rec_index' and returns the size of 'rec_index'.
+ */
+extern int  fill_index(VisualScores *vs, int begin, int end, int *rec_index);
+
+/**
+ * Return true if the extension of the filename matches one of the extensions we support; 
+ * otherwise return false.
  */
 extern bool has_image_ext(char *filename);
 extern bool has_audio_ext(char *filename);
@@ -99,11 +110,15 @@ extern bool set_duration_check_input(VisualScores *vs, char *cmd, int *index, do
 extern void partition_audio(VisualScores *vs, char *cmd);
 extern bool partition_audio_check_input(VisualScores *vs, char *cmd, int *index);
 
+/* Sets the duration of each image file from rec_duration. */
+extern void register_duration(VisualScores *vs, int total_partition, int *rec_index, double *rec_duration);
+
 /* event processing functions */
 extern void do_painting(HWND hWnd, HBITMAP *hBitmap);
 /* This function returns true if we want to exit the message loop. */
-extern bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_info,
-                          int *partition_count, clock_t *begin_time, clock_t *prev_time, double *rec_duration);
+extern bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_info, 
+                          int *partition_count, int total_partition, int *rec_index, 
+								  clock_t *begin_time, clock_t *prev_time, double *rec_duration);
 extern void escape_pressed(HWND hWnd, HBITMAP *hBitmap);
 
 /* Discard the partition done to an audio file. */

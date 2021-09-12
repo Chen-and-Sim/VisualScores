@@ -154,7 +154,7 @@ void quit(VisualScores *vs, char *cmd)
 void settings(VisualScores *vs, char *cmd)
 {
 	if(muted)  return;
-	
+
 	if(vs -> image_count == 0)
 	{
 		VS_print_log(IMAGE_NOT_LOADED);
@@ -166,12 +166,22 @@ void settings(VisualScores *vs, char *cmd)
 	{
 		int pos = vs -> image_pos[i];
 		VS_print_log(TAG_AND_FILENAME, "I", i + 1, vs -> image_info[pos] -> filename);
-		double duration = vs -> image_info[pos] -> duration;
-		bool in_range_of_audio = (duration < 0);
-		if(in_range_of_audio)
-			VS_print_log(DURATION_N_A);
+		
+		int in_range_of_audio = -1;
+		for(int j = 0; j < vs -> audio_count; ++j)
+			if(vs -> audio_info[j] -> begin <= i + 1 && vs -> audio_info[j] -> end >= i + 1)
+				in_range_of_audio = j;
+
+		double duration = vs -> image_info[pos] -> duration[0];
+		if(in_range_of_audio >= 0)
+		{
+			if(duration > 0)
+				VS_print_log(SETTINGS_DURATION_SET);
+			else
+				VS_print_log(SETTINGS_DURATION_N_A);
+		}
 		else
-			VS_print_log(DURATION, duration);
+			VS_print_log(SETTINGS_DURATION, duration);
 	}
 
 	if(vs -> audio_count != 0)
@@ -193,7 +203,68 @@ void settings(VisualScores *vs, char *cmd)
 			VS_print_log(BEGIN_AND_END, vs -> bg_info[i] -> begin, vs -> bg_info[i] -> end);
 		}
 	}
+	
+	bool first_time = true;
+	for(int i = 0; i < vs -> image_count; ++i)
+	{
+		int begin, end, nb_repetition;
+		if(vs -> image_info[vs -> image_pos[i]] -> nb_repetition < 0)
+		{
+			end = i;
+			nb_repetition = vs -> image_info[vs -> image_pos[i]] -> nb_repetition * (-1);
+			for(begin = i - 1; begin >= 0; --begin)
+			{
+				if(vs -> image_info[vs -> image_pos[begin]] -> nb_repetition <= 0)
+					break;
+			}
+			++begin;
+
+			if(first_time)
+				VS_print_log(REPETITION_HEAD);
+			VS_print_log(SETTINGS_REPETITION, begin + 1, end + 1, nb_repetition);
+			i = end;
+			first_time = false;
+		}
+	}
+	
 	printf("\n");
+}
+
+int fill_index(VisualScores *vs, int begin, int end, int *rec_index)
+{
+	int index = begin, size = 0;
+	int repeat_begin, repeat_end, nb_repetition;
+	while(index <= end)
+	{
+		if(vs -> image_info[vs -> image_pos[index]] -> nb_repetition == 0)
+		{
+			rec_index[size] = index;
+			++index;  ++size;
+			continue;
+		}
+
+		repeat_begin = index;
+		int j;
+		for(j = index; j <= end; ++j)
+		{
+			if(vs -> image_info[vs -> image_pos[j]] -> nb_repetition < 0)
+				break;
+		}
+		if(j <= end)  repeat_end = j;
+		else        repeat_end = end;
+		nb_repetition = abs(vs -> image_info[vs -> image_pos[repeat_end]] -> nb_repetition);
+
+		for(int i = 0; i <= nb_repetition; ++i)
+		{
+			for(j = repeat_begin; j <= repeat_end; ++j)
+			{
+				rec_index[size] = j;
+				++size;
+			}
+		}
+		index = repeat_end + 1;
+	}
+	return size;
 }
 
 int main()

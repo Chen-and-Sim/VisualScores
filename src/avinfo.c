@@ -12,7 +12,7 @@
 #include "avinfo.h"
 #include "vslog.h"
 
-const double VS_framerate = 50.0;
+const double VS_framerate = 25.0;
 const int VS_samplerate = 44100;
 
 AVInfo *AVInfo_init()
@@ -25,7 +25,9 @@ AVInfo *AVInfo_init()
 	av_info -> packet = NULL;
 	av_info -> frame = NULL;
 
-	av_info -> duration = 3.0;
+	av_info -> nb_repetition = 0;
+	av_info -> duration = malloc(sizeof(double) * REPETITION_LIMIT);
+	av_info -> duration[0] = 3.0;
 	av_info -> partitioned = false;
 	av_info -> filename = malloc(sizeof(char) * STRING_LIMIT);
 	av_info -> bmp_filename = malloc(sizeof(char) * STRING_LIMIT);
@@ -56,6 +58,7 @@ void AVInfo_free(AVInfo *av_info)
 	av_packet_free(&av_info -> packet);
 	av_frame_free(&av_info -> frame);
 	
+	free(av_info -> duration);
 	free(av_info -> filename);
 	free(av_info -> bmp_filename);
 	free(av_info);
@@ -476,6 +479,7 @@ bool AVInfo_open_video(AVInfo *av_info)
 	av_info -> codec_ctx2 -> framerate = (AVRational){(int)VS_framerate, 1};
 	av_info -> codec_ctx2 -> has_b_frames = 0;
 	av_info -> codec_ctx2 -> max_b_frames = 0;
+	av_info -> codec_ctx2 -> gop_size = 0;
 	if(av_info -> fmt_ctx -> oformat -> flags & AVFMT_GLOBALHEADER)
 		av_info -> codec_ctx2 -> flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 

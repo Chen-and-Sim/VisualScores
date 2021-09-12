@@ -76,12 +76,13 @@ void export_video(VisualScores *vs, char *cmd)
 	double total_time = 0;
 	for(int i = 0; i < vs -> image_count; ++i)
 	{
-		if(vs -> image_info[vs -> image_pos[i]] -> duration <= 0)
+		if(vs -> image_info[vs -> image_pos[i]] -> duration[0] <= 0)
 		{
 			VS_print_log(DURATION_NOT_SET, i + 1);
 			return;
 		}
-		total_time += vs -> image_info[vs -> image_pos[i]] -> duration;
+		for(int j = 0; j < vs -> image_info[vs -> image_pos[i]] -> nb_repetition; ++j)
+			total_time += vs -> image_info[vs -> image_pos[i]] -> duration[j];
 	}
 	if(total_time > TIME_LIMIT)
 		VS_print_log(TIME_LIMIT_EXCEEDED);
@@ -109,6 +110,10 @@ void export_video(VisualScores *vs, char *cmd)
 		if(vs -> bg_info[i] -> height > height)
 			height = vs -> bg_info[i] -> height;
 	}
+	
+	double scaling = FFMIN(1920.0, FFMAX(1280.0, (double)width)) / (double)width;
+	width = width * scaling;  /* In the range of 1280 to 1920. */
+	height = height * scaling;
 	/* It seems like swscale demands that width and height of the video file should be divisible by 4. */
 	width = width / 4 * 4;
 	height = height / 4 * 4;
@@ -159,12 +164,18 @@ void export_video(VisualScores *vs, char *cmd)
 
 bool write_image_track(VisualScores *vs)
 {
+	int rec_index[FILE_LIMIT];
+	int size = fill_index(vs, 0, vs -> image_count - 1, rec_index);
+	int repeated[FILE_LIMIT];
+	for(int i = 0; i < FILE_LIMIT; ++i)
+		repeated[i] = 0;
 	double total_time_to_prev_image = 0.0, total_time_to_cur_image = 0.0;
-	for(int i = 0; i < vs -> image_count; ++i)
+	
+	for(int i = 0; i < size; ++i)
 	{
-		VS_print_log(WRITING_IMAGE_TRACK, i + 1, vs -> image_count);
+		VS_print_log(WRITING_IMAGE_TRACK, i + 1, size);
 
-		AVInfo *image_info = vs -> image_info[vs -> image_pos[i]];
+		AVInfo *image_info = vs -> image_info[vs -> image_pos[ rec_index[i] ]];
 		AVFrame *image_frame = av_frame_alloc();
 		if(!decode_image(image_info, image_frame, vs -> video_info -> width, vs -> video_info -> height))
 		{
@@ -174,7 +185,7 @@ bool write_image_track(VisualScores *vs)
 		}
 
 		if(!mix_images(image_info, vs -> bg_info, image_frame, vs -> video_info -> frame,
-		               vs -> image_pos[i], vs -> bg_count))
+		               vs -> image_pos[rec_index[i]], vs -> bg_count))
 		{
 			av_frame_free(&image_frame);
 			AVInfo_reopen_input(image_info);
@@ -182,7 +193,8 @@ bool write_image_track(VisualScores *vs)
 		}
 		av_frame_free(&image_frame);
 
-		total_time_to_cur_image += image_info -> duration;
+		total_time_to_cur_image += image_info -> duration[ repeated[rec_index[i]] ];
+		++repeated[rec_index[i]];
 		int nb_frames = (double)(total_time_to_cur_image - total_time_to_prev_image) * VS_framerate;
 		int64_t begin_pts = total_time_to_prev_image * vs -> video_info -> codec_ctx2 -> time_base.den;
 		if(!encode_image(vs -> video_info, begin_pts, nb_frames))
@@ -223,7 +235,10 @@ bool write_audio_track(VisualScores *vs)
 
 		double begin_time = 0.0;
 		for(int j = 0; j < vs -> audio_info[index] -> begin - 1; ++j)
-			begin_time += vs -> image_info[vs -> image_pos[j]] -> duration;
+		{
+			for(int k = 0; k <= vs -> image_info[vs -> image_pos[j]] -> nb_repetition; ++k)
+				begin_time += vs -> image_info[vs -> image_pos[j]] -> duration[k];
+		}
 		pts = begin_time * vs -> video_info -> codec_ctx -> time_base.den;
 
 		if(pts > prev_end_pts)

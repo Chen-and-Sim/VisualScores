@@ -16,6 +16,8 @@
 #include <libswresample/swresample.h>
 #include <libswscale/swscale.h>
 
+#define REPETITION_LIMIT 50  /* maximum number of repetition times of an image file */
+
 extern const double VS_framerate;
 extern const int VS_samplerate;
 
@@ -41,7 +43,14 @@ typedef struct AVInfo
 	char *filename;
 
 	/* for image track */
-	double duration;  /* in seconds; 3.0 by default; is negative if unspecified */
+	/**
+	 * This variable gives the number of repetition times. If the image is to repeat
+	 * n times (it actually shows n + 1 times), then nb_repetition = n. 
+	 * We add a minus sign to show that this image is the end of a sequence of
+	 * repeated images.
+	 */
+	int nb_repetition;
+	double *duration;  /* in seconds; 3.0 by default; is negative if unspecified */
 	char *bmp_filename;  /* The name of bmp file for display. */
 
 	bool partitioned;  /* for audio track */

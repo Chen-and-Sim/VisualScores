@@ -28,7 +28,7 @@ void partition_audio(VisualScores *vs, char *cmd)
 	
 	int begin = vs -> audio_info[index - 1] -> begin;
 	int end = vs -> audio_info[index - 1] -> end;
-	if(begin == end)
+	if(begin == end && vs -> image_info[vs -> image_pos[begin - 1]] -> nb_repetition == 0)
 	{
 		VS_print_log(NEED_NO_PARTITION);
 		return;
@@ -85,7 +85,7 @@ void partition_audio(VisualScores *vs, char *cmd)
 	Sleep(1000);
 	VS_print_log(COUNTDOWN, 1);
 	Sleep(1000);
-
+ 
 	if(!PlaySound("resource\\audition.wav", NULL, SND_FILENAME | SND_ASYNC))
 	{
 		VS_print_log(FAILED_TO_AUDITION);
@@ -100,11 +100,15 @@ void partition_audio(VisualScores *vs, char *cmd)
 	*hBitmap = LoadImage(NULL, bmp_filename, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 	do_painting(hWnd, hBitmap);
 
+	int rec_index[FILE_LIMIT];
+	/* Begin and end are defined at the beginning of this function. */
+	int size = fill_index(vs, begin - 1, end - 1, rec_index);
+	int total_partition = size - 1;
 	int partition_count = -1;
 	clock_t begin_time = 0, prev_time = 0;
 	double rec_duration[FILE_LIMIT];
 	MSG msg;
-	
+
 	while(GetMessage(&msg, hWnd, 0, 0))
 	{
 		RedrawWindow(hWnd, NULL, NULL, RDW_ERASE | RDW_INVALIDATE);
@@ -118,8 +122,9 @@ void partition_audio(VisualScores *vs, char *cmd)
 			case WM_HOTKEY:
 				if(msg.wParam == ID_ENTER)
 				{
-					bool ret = enter_pressed(hWnd, hBitmap, vs, vs -> audio_info[index - 1],
-					                         &partition_count, &begin_time, &prev_time, rec_duration);
+					bool ret = enter_pressed(hWnd, hBitmap, vs, vs -> audio_info[index - 1], 
+					                         &partition_count, total_partition, rec_index,
+					                         &begin_time, &prev_time, rec_duration);
 					if(ret)  return;
 				}
 				else if(msg.wParam == ID_ESCAPE)
@@ -141,7 +146,8 @@ bool partition_audio_check_input(VisualScores *vs, char *cmd, int *index)
 		{
 			int begin = vs -> audio_info[i] -> begin;
 			int end = vs -> audio_info[i] -> end;
-			if(!vs -> audio_info[i] -> partitioned && begin != end)
+			if(!vs -> audio_info[i] -> partitioned && 
+			   (begin != end || vs -> image_info[vs -> image_pos[begin - 1]] -> nb_repetition != 0))
 			{
 				*index = i + 1;
 				return true;
@@ -168,6 +174,20 @@ bool partition_audio_check_input(VisualScores *vs, char *cmd, int *index)
 	return true;
 }
 
+void register_duration(VisualScores *vs, int total_partition, int *rec_index, double *rec_duration)
+{
+	int repeated[FILE_LIMIT];
+	for(int i = 0; i < FILE_LIMIT; ++i)
+		repeated[i] = 0;
+
+	for(int i = 0; i <= total_partition; ++i)
+	{
+		vs -> image_info[ rec_index[i] ] -> duration[ repeated[rec_index[i]] ] = rec_duration[i];
+		++repeated[rec_index[i]];
+	}
+}
+
+
 void do_painting(HWND hWnd, HBITMAP *hBitmap)
 {
 	PAINTSTRUCT ps;
@@ -191,10 +211,10 @@ void do_painting(HWND hWnd, HBITMAP *hBitmap)
 	EndPaint(hWnd, &ps);
 }
 
-bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_info,
-                   int *partition_count, clock_t *begin_time, clock_t *prev_time, double *rec_duration)
+bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_info, 
+                   int *partition_count, int total_partition, int *rec_index, 
+                   clock_t *begin_time, clock_t *prev_time, double *rec_duration)
 {
-	int total_partition = audio_info -> end - audio_info -> begin;
 	if(*partition_count == total_partition)
 	{
 		escape_pressed(hWnd, hBitmap);
@@ -218,7 +238,7 @@ bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_
 	rec_duration[*partition_count - 1] = ((cur_time - *prev_time) / (double)CLOCKS_PER_SEC);
 	*prev_time = cur_time;
 
-	char *bmp_filename = vs -> image_info[vs -> image_pos[*partition_count + audio_info -> begin - 1]] -> bmp_filename;
+	char *bmp_filename = vs -> image_info[vs -> image_pos[ rec_index[*partition_count] ]] -> bmp_filename;
 	DeleteObject(*hBitmap);
 	RedrawWindow(hWnd, NULL, NULL, RDW_ERASE | RDW_INVALIDATE);
 	*hBitmap = LoadImage(NULL, bmp_filename, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
@@ -241,8 +261,7 @@ bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_
 	{
 		UnregisterHotKey(hWnd, ID_ESCAPE);
 		rec_duration[total_partition] = audio_duration - total_time;
-		for(int i = 0; i <= total_partition; ++i)
-			vs -> image_info[vs -> image_pos[i + audio_info -> begin - 1]] -> duration = rec_duration[i];
+		register_duration(vs, total_partition, rec_index, rec_duration);
 		audio_info -> partitioned = true;
 		VS_print_log(PARTITION_COMPLETE);
 		return false;
@@ -282,7 +301,7 @@ void discard_partition(VisualScores *vs, char *cmd)
 	{
 		vs -> audio_info[index - 1] -> partitioned = false;
 		for(int i = vs -> audio_info[index - 1] -> begin - 1; i < vs -> audio_info[index - 1] -> end; ++i)
-			(vs -> image_info[vs -> image_pos[i]] -> duration) *= (-1);
+			(vs -> image_info[vs -> image_pos[i]] -> duration[0]) *= (-1);
 	}
 	settings(vs, "");
 }
