@@ -40,7 +40,7 @@ bool AVInfo_create_bmp(AVInfo *av_info)
 		AVInfo_free(bmp_info);
 		return false;
 	}
-	
+
 	struct SwsContext *sws_ctx = sws_alloc_context();
 	if(!sws_ctx)
 	{
@@ -82,7 +82,7 @@ bool AVInfo_create_bmp(AVInfo *av_info)
 	sws_ctx = sws_getCachedContext(sws_ctx, av_info -> frame -> width, av_info -> frame -> height,
 	                               (enum AVPixelFormat)av_info -> frame -> format,
 	                               bmp_info -> width, bmp_info -> height,
-											 AV_PIX_FMT_BGRA, SWS_LANCZOS, 0, 0, 0);
+	                               AV_PIX_FMT_BGRA, SWS_LANCZOS, 0, 0, 0);
 	if(!sws_ctx)
 	{
 		AVInfo_free(bmp_info);
@@ -147,14 +147,14 @@ bool AVInfo_create_bmp(AVInfo *av_info)
 bool AVInfo_create_wav(AVInfo *av_info)
 {
 	AVInfo* wav_info = AVInfo_init();
-	if(!AVInfo_open(wav_info, "resource\\audition.wav", AVTYPE_WAV, -1, -1, -1, -1))
+	if(!AVInfo_open(wav_info, L"resource\\audition.wav", AVTYPE_WAV, -1, -1, -1, -1))
 	{
 		AVInfo_free(wav_info);
 		return false;
 	}
 
 	bool avio_opened = (!(wav_info -> fmt_ctx -> oformat -> flags & AVFMT_NOFILE));
-	if(avio_opened && (avio_open(&wav_info -> fmt_ctx -> pb, wav_info -> filename, AVIO_FLAG_WRITE) < 0))
+	if(avio_opened && (avio_open(&wav_info -> fmt_ctx -> pb, wav_info -> filename_utf8, AVIO_FLAG_WRITE) < 0))
 	{
 		AVInfo_free(wav_info);
 		return false;
@@ -166,7 +166,8 @@ bool AVInfo_create_wav(AVInfo *av_info)
 		return false;
 	}
 
-	AVAudioFifo *audio_fifo = av_audio_fifo_alloc(AV_SAMPLE_FMT_S16P, wav_info -> codec_ctx -> channels, 1);
+	AVAudioFifo *audio_fifo = av_audio_fifo_alloc(wav_info -> codec_ctx -> sample_fmt, 
+												  wav_info -> codec_ctx -> ch_layout.nb_channels, 1);
 	if(!audio_fifo)
 	{
 		VS_print_log(INSUFFICIENT_MEMORY);
@@ -174,7 +175,7 @@ bool AVInfo_create_wav(AVInfo *av_info)
 		abort();
 	}
 
-	if(!decode_audio_to_fifo(av_info, wav_info, audio_fifo, AV_SAMPLE_FMT_S16P))
+	if(!decode_audio_to_fifo(av_info, wav_info, audio_fifo, wav_info -> codec_ctx -> sample_fmt))
 	{
 		av_audio_fifo_free(audio_fifo);
 		AVInfo_free(wav_info);
@@ -182,7 +183,7 @@ bool AVInfo_create_wav(AVInfo *av_info)
 		return false;
 	}
 
-	if(encode_audio_from_fifo(wav_info, audio_fifo, 0, AV_SAMPLE_FMT_S16P) == 0)
+	if(encode_audio_from_fifo(wav_info, audio_fifo, 0, wav_info -> codec_ctx -> sample_fmt) == 0)
 	{
 		av_audio_fifo_free(audio_fifo);
 		AVInfo_free(wav_info);
@@ -239,10 +240,10 @@ bool decode_image(AVInfo *image_info, AVFrame *frame, int width, int height)
 {
 	if(av_read_frame(image_info -> fmt_ctx, image_info -> packet) < 0)
 		return false;
-
+/*
 	while(true)
 	{
-		int ret1 = avcodec_send_packet(image_info -> codec_ctx, image_info -> packet) < 0;
+		int ret1 = avcodec_send_packet(image_info -> codec_ctx, image_info -> packet);
 		if(ret1 < 0 && ret1 != AVERROR(EAGAIN) && ret1 != AVERROR_EOF)
 			return false;
 
@@ -254,6 +255,12 @@ bool decode_image(AVInfo *image_info, AVFrame *frame, int width, int height)
 		else if(ret2 < 0)
 			return false;
 	}
+*/
+
+	if(avcodec_send_packet(image_info -> codec_ctx, image_info -> packet) < 0)
+		return false;
+	if(avcodec_receive_frame(image_info -> codec_ctx, image_info -> frame) < 0)
+		return false;
 
 	double scaling_w = (double)width  / image_info -> frame -> width;
 	double scaling_h = (double)height / image_info -> frame -> height;
@@ -356,7 +363,7 @@ bool mix_images(AVInfo *image_info, AVInfo **bg_info, AVFrame *frame1,
 
 	sws_ctx = sws_getCachedContext(sws_ctx, frame1 -> width, frame1 -> height, AV_PIX_FMT_RGBA,
 	                               frame1 -> width, frame1 -> height, AV_PIX_FMT_YUV420P, 
-											 SWS_LANCZOS, 0, 0, 0);
+	                               SWS_LANCZOS, 0, 0, 0);
 	if(!sws_ctx)
 	{
 		sws_freeContext(sws_ctx);
@@ -388,35 +395,60 @@ bool encode_image(AVInfo *video_info, int64_t begin_pts, int nb_frames)
 		while(true)
 		{
 			int ret3 = avcodec_send_frame(video_info -> codec_ctx2, video_info -> frame);
+			int ret4 = 0;
 			if(ret3 < 0 && ret3 != AVERROR(EAGAIN) && ret3 != AVERROR_EOF)
 				return false;
-
-			int ret4 = avcodec_receive_packet(video_info -> codec_ctx2, video_info -> packet);
-			if(ret4 == AVERROR(EAGAIN))
-				continue;
-			else if(ret4 == AVERROR_EOF || ret4 == 0)
+			else if(ret3 == AVERROR_EOF)
+			{
+				do {
+					ret4 = avcodec_receive_packet(video_info -> codec_ctx2, NULL);
+				} while(ret4 != AVERROR_EOF);
 				break;
-			else if(ret4 < 0)
-				return false;
+			}
+			else
+			{
+				ret4 = avcodec_receive_packet(video_info -> codec_ctx2, video_info -> packet);
+				if(ret4 == 0 || ret4 == AVERROR_EOF)
+					break;
+				else if(ret4 == AVERROR(EAGAIN))
+					continue;
+				else  return false;
+			}
 		}
 
-		video_info -> packet -> stream_index = 1;
-		video_info -> packet -> pts = begin_pts + frame * 1000;
-		video_info -> packet -> dts = video_info -> packet -> pts;
-		video_info -> packet -> duration = 1000;
-		video_info -> packet -> pos = -1;
-
-		if(av_write_frame(video_info -> fmt_ctx, video_info -> packet) < 0)
+		AVPacket *packet_copy = av_packet_alloc();
+		if(av_packet_ref(packet_copy, video_info -> packet) < 0)
 			return false;
-		av_packet_unref(video_info -> packet);
+
+		packet_copy -> stream_index = 1;
+		packet_copy -> duration = av_rescale_q(1, video_info -> codec_ctx2 -> time_base, 
+												  video_info -> fmt_ctx -> streams[1] -> time_base);
+		packet_copy -> pos = -1;
+		packet_copy -> pts = begin_pts + av_rescale_q(frame, video_info -> codec_ctx2 -> time_base, 
+													         video_info -> fmt_ctx -> streams[1] -> time_base);
+		packet_copy -> dts = packet_copy -> pts;
+
+		if(av_write_frame(video_info -> fmt_ctx, packet_copy) < 0)
+			return false;
+		av_packet_unref(packet_copy);
+		av_packet_free(&packet_copy);
 	}
 	return true;
 }
 
 bool write_blank_audio(AVInfo *video_info, int64_t begin_pts, int nb_frames)
 {
+	bool is_avi = false;
+	char *ext3 = video_info -> filename_utf8 + strlen(video_info -> filename_utf8) - 3;
+	if(strcmp(ext3, "avi") == 0)
+		is_avi = true;
+
 	AVInfo *blank_audio_info = AVInfo_init();
-	if(!AVInfo_open(blank_audio_info, "resource\\blank.aac", AVTYPE_AUDIO, -1, -1, -1, -1))
+	bool ret;
+	if(is_avi)
+		ret = AVInfo_open(blank_audio_info, L"resource\\blank.mp3", AVTYPE_AUDIO, -1, -1, -1, -1);
+	else  ret = AVInfo_open(blank_audio_info, L"resource\\blank.aac", AVTYPE_AUDIO, -1, -1, -1, -1);
+	if(!ret)
 	{
 		AVInfo_free(blank_audio_info);
 		return false;
@@ -434,9 +466,9 @@ bool write_blank_audio(AVInfo *video_info, int64_t begin_pts, int nb_frames)
 		blank_audio_info -> packet -> stream_index = 0;
 		blank_audio_info -> packet -> pts = pts;
 		blank_audio_info -> packet -> dts = pts;
-		blank_audio_info -> packet -> duration = 1024;
+		blank_audio_info -> packet -> duration = (is_avi ? MP3_framesize : AAC_framesize);
 		blank_audio_info -> packet -> pos = -1;
-		pts += 1024;
+		pts += (is_avi ? MP3_framesize : AAC_framesize);
 
 		if(av_write_frame(video_info -> fmt_ctx, blank_audio_info -> packet) < 0)
 			return false;
@@ -479,7 +511,7 @@ bool decode_audio_to_fifo(AVInfo *audio_info, AVInfo *video_info,
 	int ret;
 	while(true)
 	{
-		int ret = av_read_frame(audio_info -> fmt_ctx, audio_info -> packet);
+		ret = av_read_frame(audio_info -> fmt_ctx, audio_info -> packet);
 		if(ret == AVERROR_EOF)
 			finished_reading = true;
 		else if(ret < 0)
@@ -529,16 +561,18 @@ bool decode_audio_to_fifo(AVInfo *audio_info, AVInfo *video_info,
 					swr_free(&swr_ctx);
 					return false;
 				}
-			}
+			}		
 			break;
 		}
 
 		av_frame_unref(video_info -> frame);
+		video_info -> frame -> ch_layout = audio_info -> frame -> ch_layout;
 		video_info -> frame -> format = fmt;
-		video_info -> frame -> sample_rate = VS_samplerate;
-		video_info -> frame -> nb_samples = av_rescale_rnd(audio_info -> frame -> nb_samples, VS_samplerate,
+		video_info -> frame -> sample_rate = video_info -> codec_ctx -> sample_rate;
+		video_info -> frame -> nb_samples = av_rescale_rnd(audio_info -> frame -> nb_samples, 
+														   video_info -> frame -> sample_rate,
 		                                                   audio_info -> frame -> sample_rate, AV_ROUND_UP);
-		video_info -> frame -> channel_layout = AV_CH_LAYOUT_STEREO;
+		av_channel_layout_default(&video_info -> frame -> ch_layout, 2);
 
 		ret = av_frame_get_buffer(video_info -> frame, 0);
 		if(ret < 0)
@@ -550,10 +584,18 @@ bool decode_audio_to_fifo(AVInfo *audio_info, AVInfo *video_info,
 
 		if(first_time)
 		{
-			swr_ctx = swr_alloc_set_opts(swr_ctx, AV_CH_LAYOUT_STEREO, fmt, VS_samplerate, 
-			                             av_get_default_channel_layout(audio_info -> frame -> channels), 
-			                             (enum AVSampleFormat)(audio_info -> frame -> format),
-			                             audio_info -> frame -> sample_rate, 0, NULL);
+			av_channel_layout_default(&audio_info -> frame -> ch_layout, 2);
+			ret = swr_alloc_set_opts2(&swr_ctx, &video_info -> frame -> ch_layout, 
+									  fmt, video_info -> frame -> sample_rate,
+			                          &audio_info -> frame -> ch_layout,
+			                          (enum AVSampleFormat)(audio_info -> frame -> format),
+			                          audio_info -> frame -> sample_rate, 0, NULL);
+			if(ret < 0)
+			{
+				av_audio_fifo_free(audio_fifo);
+				swr_free(&swr_ctx);
+				return false;
+			}
 
 			if(swr_init(swr_ctx) < 0)
 			{
@@ -561,11 +603,9 @@ bool decode_audio_to_fifo(AVInfo *audio_info, AVInfo *video_info,
 				swr_free(&swr_ctx);
 				return false;
 			}
-			
+
 			if(video_info -> codec_ctx -> frame_size == 0)
-				video_info -> codec_ctx -> frame_size = audio_info -> codec_ctx -> frame_size;
-			if(video_info -> codec_ctx -> frame_size == 0)
-				video_info -> codec_ctx -> frame_size = 1024;
+				video_info -> codec_ctx -> frame_size = video_info -> frame_size;
 			first_time = false;
 		}
 
@@ -584,15 +624,15 @@ bool decode_audio_to_fifo(AVInfo *audio_info, AVInfo *video_info,
 			av_audio_fifo_free(audio_fifo);
 			swr_free(&swr_ctx);
 			return false;
-		}
+		}	
 	}
 
 	swr_free(&swr_ctx);
 	return true;
 }
 
-int encode_audio_from_fifo(AVInfo *video_info, AVAudioFifo *audio_fifo,
-                           int64_t begin_pts, enum AVSampleFormat fmt)
+int64_t encode_audio_from_fifo(AVInfo *video_info, AVAudioFifo *audio_fifo,
+                               int64_t begin_pts, enum AVSampleFormat fmt)
 {
 	int ret;
 	int64_t pts = begin_pts;
@@ -601,9 +641,9 @@ int encode_audio_from_fifo(AVInfo *video_info, AVAudioFifo *audio_fifo,
 	{
 		av_frame_unref(video_info -> frame);
 		video_info -> frame -> format = fmt;
-		video_info -> frame -> sample_rate = VS_samplerate;
+		video_info -> frame -> sample_rate = video_info -> codec_ctx -> sample_rate;
 		video_info -> frame -> nb_samples = video_info -> codec_ctx -> frame_size;
-		video_info -> frame -> channel_layout = AV_CH_LAYOUT_STEREO;
+		av_channel_layout_default(&video_info -> frame -> ch_layout, 2);
 
 		ret = av_frame_get_buffer(video_info -> frame, 0);
 		if(ret < 0)
@@ -660,6 +700,59 @@ int encode_audio_from_fifo(AVInfo *video_info, AVAudioFifo *audio_fifo,
 		}
 	}
 
+	ret = av_write_frame(video_info -> fmt_ctx, NULL);
 	return pts;
 }
 
+bool get_audio_duration(AVInfo *audio_info)
+{
+	audio_info -> duration[0] = (audio_info -> fmt_ctx -> duration) / 1E6;
+	char *ext3 = audio_info -> filename_utf8 + strlen(audio_info -> filename_utf8) - 3;
+	if(strcmp(ext3, "aac") != 0)
+		return true;
+
+	AVInfo *copy = AVInfo_init();
+	AVInfo_open(copy, L"resource\\_temp.mp4", AVTYPE_VIDEO, -1, -1, 120, 120);
+	// -1 and 120 are placeholders; we use video type because audio type is used for input
+
+	bool avio_opened = (!(copy -> fmt_ctx -> oformat -> flags & AVFMT_NOFILE));
+	if(avio_opened && (avio_open(&copy -> fmt_ctx -> pb, 
+	                              copy -> filename_utf8, AVIO_FLAG_WRITE) < 0))
+	{
+		AVInfo_free(copy);
+		system("del resource\\_temp.mp4 >nul 2>&1 ");
+		return false;
+	}
+
+	if(avformat_write_header(copy -> fmt_ctx, NULL) < 0)
+	{
+		AVInfo_free(copy);
+		system("del resource\\_temp.mp4 >nul 2>&1 ");
+		return false;
+	}
+
+	AVAudioFifo *audio_fifo = av_audio_fifo_alloc(copy -> codec_ctx -> sample_fmt,
+												  copy -> codec_ctx -> ch_layout.nb_channels, 1);
+	if(!audio_fifo)
+	{
+		VS_print_log(INSUFFICIENT_MEMORY);
+		system("pause >nul 2>&1");
+		abort();
+	}
+
+	if(!decode_audio_to_fifo(audio_info, copy, audio_fifo, copy -> codec_ctx -> sample_fmt))
+	{
+		AVInfo_free(copy);
+		system("del resource\\_temp.mp4 >nul 2>&1 ");
+		AVInfo_reopen_input(audio_info);
+		return false;
+	}
+
+	int samples = av_audio_fifo_size(audio_fifo);
+	av_audio_fifo_free(audio_fifo);
+	AVInfo_free(copy);
+	system("del resource\\_temp.mp4 >nul 2>&1 ");
+	AVInfo_reopen_input(audio_info);
+	audio_info -> duration[0] = (double)samples / (double)VS_samplerate;
+	return true;
+}

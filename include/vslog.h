@@ -9,7 +9,7 @@
 #include <stdbool.h>
 
 /* Note that here we have added 1 to the actual number of tags. */
-#define VS_LOG_COUNT 55
+#define VS_LOG_COUNT 57
 #define STRING_LIMIT 300  /* maximum length of a string */
 
 typedef enum Language
@@ -26,7 +26,7 @@ typedef enum VS_log_tag
 	INSUFFICIENT_MEMORY = 1,
 	WRONG_COMMAND,
 	ABOUT,
-	SWITCH_LANGUAGE,
+	TOGGLE_LANGUAGE,
 	IMAGE_NOT_LOADED,
 	IMAGE_TRACK_HEAD,
 	AUDIO_TRACK_HEAD,
@@ -51,10 +51,12 @@ typedef enum VS_log_tag
 	IMAGE_NOT_FOUND,
 	AUDIO_OVERLAP,
 	AUDIO_LOADED,
+	AAC_DURATION_NOT_FOUND,
 	ANOTHER_FILE_DELETED,
 	FILE_DELETED,
 	FILE_MODIFIED,
 	REPETITION_OVERLAP,
+	REPETITION_INTERSECT_AUDIO,
 	REPETITION_SET,
 	CAN_NOT_SET_DURATION,
 	DURATION_SET,
@@ -82,7 +84,7 @@ typedef enum VS_log_tag
 	VIDEO_EXPORTED
 } VS_log_tag;
 
-extern const char vs_log[2][VS_LOG_COUNT][STRING_LIMIT];
+extern const wchar_t vs_log[2][VS_LOG_COUNT][STRING_LIMIT];
 
 extern void VS_print_log(VS_log_tag, ...);
 

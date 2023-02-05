@@ -4,27 +4,35 @@
  */
 
 #include <io.h>
+#include <locale.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 #include <windows.h>
  
 #include "vslog.h"
 #include "visualscores.h"
 
-const char short_command[COMMAND_COUNT][5] =
-	{"-a", "-h", "-l", "-q", "-x", "-i", "-I", "-o", "-d", "-m", "-r", "-t", "-p", "-D", "-e"};
-const char long_command[COMMAND_COUNT][10] =
-	{"about",  "help",   "language", "quit",     "settings",  "load",    "loadall", "loadother",
-	 "delete", "modify", "repeat",   "duration", "partition", "discard", "export"};
-void (*functions[COMMAND_COUNT]) (VisualScores *, char *) =
+const wchar_t short_command[COMMAND_COUNT][5] =
+	{L"-a", L"-h", L"-l", L"-q", L"-x", L"-i", L"-I", L"-o", L"-d", L"-m", L"-r", L"-t", L"-p", L"-D", L"-e"};
+const wchar_t long_command[COMMAND_COUNT][10] =
+	{L"about",  L"help",   L"language", L"quit",     L"settings",  L"load",    L"loadall", L"loadother",
+	 L"delete", L"modify", L"repeat",   L"duration", L"partition", L"discard", L"export"};
+void (*functions[COMMAND_COUNT]) (VisualScores *, wchar_t *) =
 	{about, help, switch_language, quit, settings, load, load_all, load_other, delete_file,
 	 modify_file, set_repetition, set_duration, partition_audio, discard_partition, export_video};
 
 VisualScores *VS_init()
 {
 	VisualScores *vs = malloc(sizeof(VisualScores));
+	if(vs == NULL)
+	{
+		VS_print_log(INSUFFICIENT_MEMORY);
+		system("pause >nul 2>&1");
+		abort();
+	}
 	
 	vs -> image_count = 0;
 	vs -> audio_count = 0;
@@ -64,94 +72,94 @@ void VS_free(VisualScores *vs)
 	free(vs);
 }
 
-void about(VisualScores *vs, char *cmd)
+void about(VisualScores *vs, wchar_t *cmd)
 {
 	VS_print_log(ABOUT);
 }
 
-void help(VisualScores *vs, char *cmd)
+void help(VisualScores *vs, wchar_t *cmd)
 {
 	if(language == English)
 	{
-		printf("\nAvailable commands: (<>: necessary arguments; []: optional arguments)\n"
-				 "-a  about      Show the information of the program.\n"
-				 "-h  help       Show help.\n"
-				 "-l  language   Switch the language of the program.\n"
-				 "-q  quit       Quit the program.\n"
-				 "-x  settings   Show current settings.\n\n"
-				 "-i <Path> [Pos]            load <Path> [Pos]\n"
-				 "    Load an image to the image track. \n"
-				 "-I <Path> [Pos]            loadall <Path> [Pos]\n"
-				 "    Load all images in the folder located at <Path> to the image track.\n"
-				 "-o <Path> [Begin] [End]    loadother <Path> [Begin] [End]\n"
-				 "    Load an image to the background track or load an audio file to the\n"
-				 "    audio track.\n"
-				 "-d <Tag>                   delete <Tag>\n"
-				 "    Delete the file tagged <Tag>.\n"
-				 "-m <Tag> <...>             modify <Tag> <...>\n"
-				 "    Modify the file tagged <Tag>.\n"
-				 "-r <Begin> <End> <Times>   repeat <Begin> <End> <Times>\n"
-				 "    Set the number of repetition times of images from <Begin> to <End> in\n"
-				 "    the image track to <Times> times.\n"
-				 "-t <Tag> <Time>            duration <Tag> <Time>\n"
-				 "    Set the duration of an image file not in the range of any audio file.\n\n"
-				 "-p [Tag]                   partition [Tag]\n"
-				 "    Partition the audio file tagged [Tag] and determine the duration of\n"
-				 "    images in the range of the audio file.\n"
-				 "-D <Tag>                   discard <Tag>\n"
-				 "    Discard the partition done to the audio file tagged <Tag>.\n"
-				 "-e [Path]                  export [Path]\n"
-				 "    Export the video file to [Path]. \n\n"
-				 "For detailed descriptions please refer to the user manual.\n\n");
+		wprintf(L"\nAvailable commands: (<>: necessary arguments; []: optional arguments)\n"
+		         "-a  about      Show the information of the program.\n"
+		         "-h  help       Show help.\n"
+		         "-l  language   Toggle the language of the program.\n"
+		         "-q  quit       Quit the program.\n"
+		         "-x  settings   Show current settings.\n\n"
+		         "-i <Path> [Pos]            load <Path> [Pos]\n"
+		         "    Load an image to the image track. \n"
+		         "-I <Path> [Pos]            loadall <Path> [Pos]\n"
+		         "    Load all images in the folder located at <Path> to the image track.\n"
+		         "-o <Path> [Begin] [End]    loadother <Path> [Begin] [End]\n"
+		         "    Load an image to the background track or load an audio file to the\n"
+		         "    audio track.\n"
+		         "-d <Tag>                   delete <Tag>\n"
+		         "    Delete the file tagged <Tag>.\n"
+		         "-m <Tag> <...>             modify <Tag> <...>\n"
+		         "    Modify the file tagged <Tag>.\n"
+		         "-r <Begin> <End> <Times>   repeat <Begin> <End> <Times>\n"
+		         "    Set the number of repetition times of images from <Begin> to <End> in\n"
+		         "    the image track to <Times> times.\n"
+		         "-t <Tag> <Time>            duration <Tag> <Time>\n"
+		         "    Set the duration of an image file not in the range of any audio file.\n\n"
+		         "-p [Tag]                   partition [Tag]\n"
+		         "    Partition the audio file tagged [Tag] and determine the duration of\n"
+		         "    images in the range of the audio file.\n"
+		         "-D <Tag>                   discard <Tag>\n"
+		         "    Discard the partition done to the audio file tagged <Tag>.\n"
+		         "-e [Path]                  export [Path]\n"
+		         "    Export the video file to [Path]. \n\n"
+		         "For detailed descriptions please refer to the user manual.\n\n");
 	}
 	else
 	{
-		printf("\n¿ÉÓÃµÄÖ¸Áî£º£¨<>£º±ØÒª²ÎÊı£»[]£º¿ÉÑ¡²ÎÊı£©\n"
-				 "-a  about      ÏÔÊ¾³ÌĞòĞÅÏ¢¡£\n"
-				 "-h  help       ÏÔÊ¾°ïÖú¡£\n"
-				 "-l  language   ÇĞ»»³ÌĞòÓïÑÔ¡£\n"
-				 "-q  quit       ½áÊø³ÌĞò¡£\n"
-				 "-x  settings   ÏÔÊ¾µ±Ç°ÉèÖÃ¡£\n\n"
-				 "-i <Path> [Pos]            load <Path> [Pos]\n"
-				 "    ÔØÈëÍ¼Æ¬ÖÁÍ¼Æ¬¹ì¡£\n"
-				 "-I <Path> [Pos]            loadall <Path> [Pos]\n"
-				 "    ÔØÈëÂ·¾¶Îª [Path] µÄÎÄ¼ş¼ĞÄÚµÄËùÓĞÍ¼Æ¬ÖÁÍ¼Æ¬¹ì¡£\n"
-				 "-o <Path> [Begin] [End]    loadother <Path> [Begin] [End]\n"
-				 "    ÔØÈëÍ¼Æ¬ÖÁ±³¾°¹ì»òÔØÈëÒôÆµÖÁÒôÆµ¹ì¡£\n"
-				 "-d <Tag>                   delete <Tag>\n"
-				 "    É¾³ı±êÇ©Îª <Tag> µÄÎÄ¼ş¡£\n"
-				 "-m <Tag> <...>             modify <Tag> <...>\n"
-				 "    ĞŞ¸Ä±êÇ©Îª <Tag> µÄÎÄ¼ş¡£\n"
-				 "-r <Begin> <End> <Times>   repeat <Begin> <End> <Times>\n"
-				 "    ½« <Begin> ÖÁ <End> ·¶Î§ÄÚµÄÍ¼Æ¬ÉèÖÃÖØ¸´´ÎÊı <Times> ´Î¡£\n"
-				 "-t <Tag> <Time>            duration <Tag> <Time>\n"
-				 "    ÉèÖÃ²»ÔÚÈÎºÎÒ»¸öÒôÆµ·¶Î§ÄÚµÄÍ¼Æ¬µÄÊ±³¤¡£\n\n"
-				 "-p [Tag]                   partition [Tag]\n"
-				 "    »®·Ö±êÇ©Îª [Tag] µÄÒôÆµÎÄ¼şÒÔ¾ö¶¨´ËÒôÆµ·¶Î§ÄÚµÄÍ¼Æ¬µÄÊ±³¤¡£\n"
-				 "-D <Tag>                   discard <Tag>\n"
-				 "    ³·Ïú¶Ô±êÇ©Îª <Tag> µÄÒôÆµÎÄ¼şËù×öµÄ»®·Ö¡£\n"
-				 "-e [Path]                  export [Path]\n"
-				 "    µ¼³öÊÓÆµÎÄ¼şÖÁ [Path]¡£\n\n"
-				 "Çë²ÎÔÄÓÃ»§ÊÖ²áÒÔ»ñÈ¡ÏêÏ¸ÃèÊö¡£\n\n");
+		wprintf(L"\nå¯ç”¨çš„æŒ‡ä»¤ï¼šï¼ˆ<>ï¼šå¿…è¦å‚æ•°ï¼›[]ï¼šå¯é€‰å‚æ•°ï¼‰\n"
+				"-a  about      æ˜¾ç¤ºç¨‹åºä¿¡æ¯ã€‚\n"
+				"-h  help       æ˜¾ç¤ºå¸®åŠ©ã€‚\n"
+				"-l  language   åˆ‡æ¢ç¨‹åºè¯­è¨€ã€‚\n"
+				"-q  quit       ç»“æŸç¨‹åºã€‚\n"
+				"-x  settings   æ˜¾ç¤ºå½“å‰è®¾ç½®ã€‚\n\n"
+				"-i <Path> [Pos]            load <Path> [Pos]\n"
+				"    è½½å…¥å›¾ç‰‡è‡³å›¾ç‰‡è½¨ã€‚\n"
+				"-I <Path> [Pos]            loadall <Path> [Pos]\n"
+				"    è½½å…¥è·¯å¾„ä¸º [Path] çš„æ–‡ä»¶å¤¹å†…çš„æ‰€æœ‰å›¾ç‰‡è‡³å›¾ç‰‡è½¨ã€‚\n"
+				"-o <Path> [Begin] [End]    loadother <Path> [Begin] [End]\n"
+				"    è½½å…¥å›¾ç‰‡è‡³èƒŒæ™¯è½¨æˆ–è½½å…¥éŸ³é¢‘è‡³éŸ³é¢‘è½¨ã€‚\n"
+				"-d <Tag>                   delete <Tag>\n"
+				"    åˆ é™¤æ ‡ç­¾ä¸º <Tag> çš„æ–‡ä»¶ã€‚\n"
+				"-m <Tag> <...>             modify <Tag> <...>\n"
+				"    ä¿®æ”¹æ ‡ç­¾ä¸º <Tag> çš„æ–‡ä»¶ã€‚\n"
+				"-r <Begin> <End> <Times>   repeat <Begin> <End> <Times>\n"
+				"    å°† <Begin> è‡³ <End> èŒƒå›´å†…çš„å›¾ç‰‡è®¾ç½®é‡å¤æ¬¡æ•° <Times> æ¬¡ã€‚\n"
+				"-t <Tag> <Time>            duration <Tag> <Time>\n"
+				"    è®¾ç½®ä¸åœ¨ä»»ä½•ä¸€ä¸ªéŸ³é¢‘èŒƒå›´å†…çš„å›¾ç‰‡çš„æ—¶é•¿ã€‚\n\n"
+				"-p [Tag]                   partition [Tag]\n"
+				"    åˆ’åˆ†æ ‡ç­¾ä¸º [Tag] çš„éŸ³é¢‘æ–‡ä»¶ä»¥å†³å®šæ­¤éŸ³é¢‘èŒƒå›´å†…çš„å›¾ç‰‡çš„æ—¶é•¿ã€‚\n"
+				"-D <Tag>                   discard <Tag>\n"
+				"    æ’¤é”€å¯¹æ ‡ç­¾ä¸º <Tag> çš„éŸ³é¢‘æ–‡ä»¶æ‰€åšçš„åˆ’åˆ†ã€‚\n"
+				"-e [Path]                  export [Path]\n"
+				"    å¯¼å‡ºè§†é¢‘æ–‡ä»¶è‡³ [Path]ã€‚\n\n"
+				"è¯·å‚é˜…ç”¨æˆ·æ‰‹å†Œä»¥è·å–è¯¦ç»†æè¿°ã€‚\n\n");
 	}
 }
 
-void switch_language(VisualScores *vs, char *cmd)
+void switch_language(VisualScores *vs, wchar_t *cmd)
 {
 	if(language == English)
 		language = Chinese;
 	else
 		language = English;
-	VS_print_log(SWITCH_LANGUAGE);
+	VS_print_log(TOGGLE_LANGUAGE);
 }
 
-void quit(VisualScores *vs, char *cmd)
+void quit(VisualScores *vs, wchar_t *cmd)
 {
 	VS_free(vs);
 	exit(0);
 }
 
-void settings(VisualScores *vs, char *cmd)
+void settings(VisualScores *vs, wchar_t *cmd)
 {
 	if(muted)  return;
 
@@ -160,13 +168,13 @@ void settings(VisualScores *vs, char *cmd)
 		VS_print_log(IMAGE_NOT_LOADED);
 		return;
 	}
-	
+
 	VS_print_log(IMAGE_TRACK_HEAD);
 	for(int i = 0; i < vs -> image_count; ++i)
 	{
 		int pos = vs -> image_pos[i];
-		VS_print_log(TAG_AND_FILENAME, "I", i + 1, vs -> image_info[pos] -> filename);
-		
+		VS_print_log(TAG_AND_FILENAME, L"I", i + 1, vs -> image_info[pos] -> filename);
+
 		int in_range_of_audio = -1;
 		for(int j = 0; j < vs -> audio_count; ++j)
 			if(vs -> audio_info[j] -> begin <= i + 1 && vs -> audio_info[j] -> end >= i + 1)
@@ -189,7 +197,7 @@ void settings(VisualScores *vs, char *cmd)
 		VS_print_log(AUDIO_TRACK_HEAD);
 		for(int i = 0; i < vs -> audio_count; ++i)
 		{
-			VS_print_log(TAG_AND_FILENAME, "A", i + 1, vs -> audio_info[i] -> filename);
+			VS_print_log(TAG_AND_FILENAME, L"A", i + 1, vs -> audio_info[i] -> filename);
 			VS_print_log(BEGIN_AND_END, vs -> audio_info[i] -> begin, vs -> audio_info[i] -> end);
 		}
 	}
@@ -199,11 +207,11 @@ void settings(VisualScores *vs, char *cmd)
 		VS_print_log(BG_IMAGE_TRACK_HEAD);
 		for(int i = 0; i < vs -> bg_count; ++i)
 		{
-			VS_print_log(TAG_AND_FILENAME, "BG", i + 1, vs -> bg_info[i] -> filename);
+			VS_print_log(TAG_AND_FILENAME, L"BG", i + 1, vs -> bg_info[i] -> filename);
 			VS_print_log(BEGIN_AND_END, vs -> bg_info[i] -> begin, vs -> bg_info[i] -> end);
 		}
 	}
-	
+
 	bool first_time = true;
 	for(int i = 0; i < vs -> image_count; ++i)
 	{
@@ -227,7 +235,7 @@ void settings(VisualScores *vs, char *cmd)
 		}
 	}
 	
-	printf("\n");
+	wprintf(L"\n");
 }
 
 int fill_index(VisualScores *vs, int begin, int end, int *rec_index)
@@ -251,7 +259,7 @@ int fill_index(VisualScores *vs, int begin, int end, int *rec_index)
 				break;
 		}
 		if(j <= end)  repeat_end = j;
-		else        repeat_end = end;
+		else          repeat_end = end;
 		nb_repetition = abs(vs -> image_info[vs -> image_pos[repeat_end]] -> nb_repetition);
 
 		for(int i = 0; i <= nb_repetition; ++i)
@@ -294,46 +302,51 @@ int main()
 	};
 	RegisterClassEx(&wc);
 
+	setlocale(LC_ALL, "");
 	av_log_set_level(AV_LOG_QUIET);
 	VisualScores *vs = VS_init();
 
-	char null[1] = "";
+	wchar_t null[1] = L"";
 	about(vs, null);  help(vs, null);
 
 	while(1)
 	{
-		char str[STRING_LIMIT], former_part[20], latter_part[STRING_LIMIT];
-		printf("VisualScores> ");
-		fgets(str, STRING_LIMIT, stdin);
-		if(str[strlen(str) - 1] == '\n')
-			str[strlen(str) - 1] = '\0';
+		wchar_t str[STRING_LIMIT], former_part[20], latter_part[STRING_LIMIT];
+		printf("VisualScores> "); fflush(stdout);
+		fgetws(str, STRING_LIMIT, stdin);
+		if(str[wcslen(str) - 1] == L'\n')
+			str[wcslen(str) - 1] = L'\0';
 
-		char *pch = strchr(str, ' ');
-		if(pch == NULL)
+		int begin = 0;
+		while(str[begin] == L' ')  ++begin;
+		wcscpy_s(str, STRING_LIMIT, str + begin);
+
+		wchar_t *pwc = wcschr(str, L' ');
+		if(pwc == NULL)
 		{
-			strcpy(former_part, str);
-			strcpy(latter_part, "\0");
+			wcscpy_s(former_part, 20, str);
+			wcscpy_s(latter_part, STRING_LIMIT, L"\0");
 		}
 		else
 		{
-			int len = pch - str;
-			strncpy(former_part, str, len);
-			former_part[len] = '\0';
-			while(*pch == ' ') 
-				++pch;
-			strcpy(latter_part, pch);
+			int len = pwc - str;
+			wcsncpy_s(former_part, 20, str, len);
+			former_part[len] = L'\0';
+			while(*pwc == L' ')
+				++pwc;
+			wcscpy_s(latter_part, STRING_LIMIT, pwc);
 		}
 
 		int i;
 		for(i = 0; i < COMMAND_COUNT; ++i)
 		{
-			if(strcmp(former_part, short_command[i]) == 0 || strcmp(former_part, long_command[i]) == 0 )
+			if(wcscmp(former_part, short_command[i]) == 0 || wcscmp(former_part, long_command[i]) == 0 )
 			{
 				(*functions[i]) (vs, latter_part);
 				break;
 			}
 		}
-		if(i == COMMAND_COUNT && str[0] != '\0')
+		if(i == COMMAND_COUNT && str[0] != L'\0')
 			VS_print_log(WRONG_COMMAND);
 	}
 	return 0;

@@ -1,8 +1,9 @@
 /** 
  * VisualScores source file: tracks.c
- * Defines functions which add files to, or modify, delete files in the track.
+ * Defines functions which add, modify or delete files in a track.
  */
 
+#include <io.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,48 +12,48 @@
 #include "vslog.h"
 #include "visualscores.h"
 
-bool has_image_ext(char *filename)
+bool has_image_ext(wchar_t *filename)
 {
-	char *ext = strrchr(filename, '.');
+	wchar_t *ext = wcsrchr(filename, L'.');
 	if(ext == NULL)
 		return false;
 	else  ++ext;
 
-	const char image_ext[8][5] = {"bmp", "jpeg", "jpg", "png", "tiff", "tif", "webp", "ico"};
+	const wchar_t image_ext[8][5] = {L"bmp", L"jpeg", L"jpg", L"png", L"tiff", L"tif", L"webp", L"ico"};
 	for(int i = 0; i < 8; ++i)
-		if(strcmp(ext, image_ext[i]) == 0)
+		if(wcscmp(ext, image_ext[i]) == 0)
 			return true;
 	return false;
 }
 
-bool has_audio_ext(char *filename)
+bool has_audio_ext(wchar_t *filename)
 {
-	char *ext = strrchr(filename, '.');
+	wchar_t *ext = wcsrchr(filename, L'.');
 	if(ext == NULL)
 		return false;
 	else  ++ext;
 
-	const char audio_ext[4][5] = {"wav", "flac", "mp3", "aac"};
+	const wchar_t audio_ext[4][5] = {L"wav", L"flac", L"mp3", L"aac"};
 	for(int i = 0; i < 4; ++i)
-		if(strcmp(ext, audio_ext[i]) == 0)
+		if(wcscmp(ext, audio_ext[i]) == 0)
 			return true;
 	return false;
 }
 
-void load(VisualScores *vs, char *cmd)
+void load(VisualScores *vs, wchar_t *cmd)
 {
 	if(vs -> image_count == FILE_LIMIT)
 	{
 		VS_print_log(FILE_LIMIT_EXCEEDED);
 		return;
 	}
-	
-	char filename[STRING_LIMIT];
+
+	wchar_t filename[STRING_LIMIT];
 	int offset = 0;
-	bool valid = load_check_input(vs, cmd, filename, &offset);
+	bool valid = load_parse_input(vs, cmd, filename, &offset);
 	if(!valid)  return;
 
-	if(access(filename, X_OK) == -1)
+	if(_waccess(filename, 7) == -1) // rwx access
 	{
 		VS_print_log(NO_PERMISSION);
 		return;
@@ -95,18 +96,22 @@ void load(VisualScores *vs, char *cmd)
 				in_range_of_audio = i;
 		}
 		
-		/* set duration to negative if in the range of an audio file */
 		if(in_range_of_audio >= 0)
 		{
-			vs -> image_info[vs -> image_count - 1] -> duration[0] *= (-1);
 			int i = in_range_of_audio;
 			if(vs -> audio_info[i] -> partitioned)
 			{
-				char tag[10];
-				sprintf(tag, "A%d", i + 1);
+				bool muted_orig = muted;
+				muted = true;
+				wchar_t tag[10];
+				swprintf(tag, 10, L"A%d", i + 1);
 				discard_partition(vs, tag);
-				VS_print_log(PARTITION_DISCARDED);
+				muted = muted_orig;
+				VS_print_log(PARTITION_DISCARDED, vs -> audio_info[i] -> filename);
 			}
+			/* set duration to negative if in the range of an audio file */
+			if(vs -> image_info[vs -> image_count - 1] -> duration[0] > 0)
+			   vs -> image_info[vs -> image_count - 1] -> duration[0] *= (-1);
 		}
 
 		for(int i = 0; i < vs -> bg_count; ++i)
@@ -118,7 +123,7 @@ void load(VisualScores *vs, char *cmd)
 		}
 			
 		VS_print_log(IMAGE_LOADED);
-		settings(vs, "");
+		settings(vs, L"");
 	}
 	else
 	{
@@ -127,37 +132,37 @@ void load(VisualScores *vs, char *cmd)
 	}
 }
 
-bool load_check_input(VisualScores *vs, char *cmd, char *filename, int *offset)
+bool load_parse_input(VisualScores *vs, wchar_t *cmd, wchar_t *filename, int *offset)
 {
-	char str_offset[4];
+	wchar_t str_offset[4];
 	size_t pos = 0;
-	while(pos < strlen(cmd) && cmd[pos] != ' ')
+	while(pos < wcslen(cmd) && cmd[pos] != L' ')
 		++pos;
-	strncpy(filename, cmd, pos);
-	filename[pos] = '\0';
-	
-	for(unsigned int i = 0; i < strlen(filename); ++i)
-		if(filename[i] == '/')
-			filename[i] = '\\';
-		
-	bool no_dir = (strchr(filename, '\\') == NULL);
+	wcsncpy(filename, cmd, pos);
+	filename[pos] = L'\0';
+
+	for(unsigned int i = 0; i < wcslen(filename); ++i)
+		if(filename[i] == L'/')
+			filename[i] = L'\\';
+
+	bool no_dir = (wcschr(filename, L'\\') == NULL);
 	if(no_dir)
 	{
-		char temp[STRING_LIMIT];
-		strcpy(temp, filename);
-		sprintf(filename, ".\\%s", temp);
+		wchar_t temp[STRING_LIMIT];
+		wcscpy(temp, filename);
+		swprintf(filename, STRING_LIMIT, L".\\%ls", temp);
 	}
-	
-	if(cmd[pos] == '\0')
+
+	if(cmd[pos] == L'\0')
 		*offset = vs -> image_count;
 	else
 	{
-		while(pos < strlen(cmd) && cmd[pos] == ' ')
+		while(pos < wcslen(cmd) && cmd[pos] == L' ')
 			++pos;
-		strcpy(str_offset, cmd + pos);
-		char *pEnd;
-		*offset = strtol(str_offset, &pEnd, 10);
-		if(str_offset[0] < '0' || str_offset[0] > '9' || *pEnd != '\0' || 
+		wcscpy(str_offset, cmd + pos);
+		wchar_t *pEnd;
+		*offset = wcstol(str_offset, &pEnd, 10);
+		if(str_offset[0] < L'0' || str_offset[0] > L'9' || *pEnd != L'\0' || 
 		   *offset < 0 || *offset > vs -> image_count)
 		{
 			VS_print_log(INVALID_INPUT);
@@ -167,37 +172,37 @@ bool load_check_input(VisualScores *vs, char *cmd, char *filename, int *offset)
 	return true;
 }
 
-void load_all(VisualScores *vs, char *cmd)
+void load_all(VisualScores *vs, wchar_t *cmd)
 {
-	char path[STRING_LIMIT];
+	wchar_t path[STRING_LIMIT];
 	int offset = 0;
-	bool valid = load_check_input(vs, cmd, path, &offset);
+	bool valid = load_parse_input(vs, cmd, path, &offset);
 	if(!valid)  return;
 
-	if(path[strlen(path) - 1] == '\\' || path[strlen(path) - 1] == '/')
-		path[strlen(path) - 1] = '\0';
-	if(access(path, X_OK) == -1)
+	if(path[wcslen(path) - 1] == L'\\' || path[wcslen(path) - 1] == L'/')
+		path[wcslen(path) - 1] = L'\0';
+	if(_waccess(path, 7) == -1) // rwx access
 	{
 		VS_print_log(NO_PERMISSION);
 		return;
 	}
 
-	const char image_ext[8][5] = {"bmp", "jpeg", "jpg", "png", "tiff", "tif", "webp", "ico"};
+	const wchar_t image_ext[8][5] = {L"bmp", L"jpeg", L"jpg", L"png", L"tiff", L"tif", L"webp", L"ico"};
 	int image_added = 0;
 	int orig_image_count = vs -> image_count;
 	for(int i = 0; i < 8; ++i)
 	{
-		char pattern[STRING_LIMIT];
-		sprintf(pattern, "%s\\*.%s", path, image_ext[i]);
-		struct _finddata_t fileinfo;
-		intptr_t handle = _findfirst(pattern, &fileinfo);
+		wchar_t pattern[STRING_LIMIT];
+		swprintf(pattern, STRING_LIMIT, L"%ls\\*.%ls", path, image_ext[i]);
+		struct _wfinddata_t fileinfo;
+		intptr_t handle = _wfindfirst(pattern, &fileinfo);
 		bool exceeded = false;
 
 		if(handle != -1)
 		{
-			char filename[STRING_LIMIT];
+			wchar_t filename[STRING_LIMIT];
 			do{
-				if( (strcmp(fileinfo.name, ".") != 0) && (strcmp(fileinfo.name, "..") != 0) )
+				if( (wcscmp(fileinfo.name, L".") != 0) && (wcscmp(fileinfo.name, L"..") != 0) )
 				{
 					if(vs -> image_count == FILE_LIMIT)
 					{
@@ -214,7 +219,7 @@ void load_all(VisualScores *vs, char *cmd)
 						}
 					}
 
-					sprintf(filename, "%s\\%s", path, fileinfo.name);
+					swprintf(filename, STRING_LIMIT, L"%ls\\%ls", path, fileinfo.name);
 					vs -> image_info[vs -> image_count] = AVInfo_init();
 					bool added = AVInfo_open(vs -> image_info[vs -> image_count],
 					                         filename, AVTYPE_IMAGE, -1, -1, -1, -1);
@@ -230,7 +235,7 @@ void load_all(VisualScores *vs, char *cmd)
 						AVInfo_free(vs -> image_info[vs -> image_count]);
 					}
 				}
-			}	while(_findnext(handle, &fileinfo) == 0);
+			}	while(_wfindnext(handle, &fileinfo) == 0);
 		}
 		_findclose(handle);
 		if(exceeded)  break;
@@ -268,16 +273,20 @@ void load_all(VisualScores *vs, char *cmd)
 		
 		if(in_range_of_audio >= 0)
 		{
-			/* set duration to negative if in the range of an audio file */
-			for(int i = orig_image_count; i < vs -> image_count; ++i)
-				vs -> image_info[i] -> duration[0] *= (-1);
 			int i = in_range_of_audio;
 			if(vs -> audio_info[i] -> partitioned)
 			{
-				char tag[10];
-				sprintf(tag, "A%d", i + 1);
+				bool muted_orig = muted;
+				muted = true;
+				wchar_t tag[10];
+				swprintf(tag, 10, L"A%d", i + 1);
 				discard_partition(vs, tag);
+				muted = muted_orig;
 			}
+			/* set duration to negative if in the range of an audio file */
+			for(int i = orig_image_count; i < vs -> image_count; ++i)
+				if(vs -> image_info[i] -> duration[0] > 0)
+					vs -> image_info[i] -> duration[0] *= (-1);
 		}
 
 		for(int i = 0; i < vs -> bg_count; ++i)
@@ -289,13 +298,13 @@ void load_all(VisualScores *vs, char *cmd)
 		}
 
 		VS_print_log(IMAGES_LOADED, image_added);
-		settings(vs, "");
+		settings(vs, L"");
 	}
 	else
 		VS_print_log(IMAGE_NOT_FOUND);
 }
 
-void load_other(VisualScores *vs, char *cmd)
+void load_other(VisualScores *vs, wchar_t *cmd)
 {
 	if(vs -> image_count == 0)
 	{
@@ -303,12 +312,12 @@ void load_other(VisualScores *vs, char *cmd)
 		return;
 	}
 	
-	char filename[STRING_LIMIT];
+	wchar_t filename[STRING_LIMIT];
 	int begin = 0, end = 0;
-	bool valid = load_other_check_input(vs, cmd, filename, &begin, &end);
+	bool valid = load_other_parse_input(vs, cmd, filename, &begin, &end);
 	if(!valid)  return;
 	
-	if(access(filename, X_OK) == -1)
+	if(_waccess(filename, 7) == -1) // rwx access
 	{
 		VS_print_log(NO_PERMISSION);
 		return;
@@ -330,29 +339,47 @@ void load_other(VisualScores *vs, char *cmd)
 			return;
 		}
 		
-		bool overlap = false;
 		for(int i = 0; i < vs -> audio_count; ++i)
 		{
 			if(begin <= vs -> audio_info[i] -> end && end >= vs -> audio_info[i] -> begin)
 			{
-				overlap = true;
-				break;
+				VS_print_log(AUDIO_OVERLAP);
+				return;
 			}
 		}
-		if(overlap)
+
+		int repetition_begin = -1, repetition_end = -1;
+		for(int j = vs -> image_count - 1; j >= 0; --j)
 		{
-			VS_print_log(AUDIO_OVERLAP);
-			return;
+			if(repetition_end < 0 && vs -> image_info[ vs -> image_pos[j] ] -> nb_repetition < 0)
+				repetition_end = j + 1;
+			if(repetition_end < 0)
+				continue;
+			if(j == 0 || vs -> image_info[ vs -> image_pos[j - 1] ] -> nb_repetition <= 0)
+				repetition_begin = j + 1;
+			if(repetition_begin >= 0)
+			{
+				if(  begin <= repetition_end && end >= repetition_begin &&
+				   !(begin <= repetition_begin && end >= repetition_end) )
+				{
+					VS_print_log(REPETITION_INTERSECT_AUDIO);
+					return;
+				}
+				repetition_end = -1;
+				repetition_begin = -1;
+			}
 		}
 		
 		vs -> audio_info[vs -> audio_count] = AVInfo_init();
 		bool added = AVInfo_open(vs -> audio_info[vs -> audio_count],
 		                         filename, AVTYPE_AUDIO, begin, end, -1, -1);
+
 		if(added)
 		{
+			if(!get_audio_duration(vs -> audio_info[vs -> audio_count]))
+				VS_print_log(AAC_DURATION_NOT_FOUND, filename);
 			if(begin == end && vs -> image_info[vs -> image_pos[begin - 1]] -> nb_repetition == 0)
-				vs -> image_info[vs -> image_pos[begin - 1]] -> duration[0] =
-					(vs -> audio_info[vs -> audio_count] -> fmt_ctx -> duration) / 1E6;
+				vs -> image_info[vs -> image_pos[begin - 1]] -> duration[0] = vs -> audio_info[vs -> audio_count] -> duration[0];
 			else
 			{
 				/* set the duration of image files in the range of the audio file to negative */
@@ -362,7 +389,8 @@ void load_other(VisualScores *vs, char *cmd)
 
 			++(vs -> audio_count);
 			VS_print_log(AUDIO_LOADED);
-			settings(vs, "");
+
+			settings(vs, L"");
 		}
 		else
 		{
@@ -386,7 +414,7 @@ void load_other(VisualScores *vs, char *cmd)
 		{
 			++(vs -> bg_count);
 			VS_print_log(IMAGE_LOADED);
-			settings(vs, "");
+			settings(vs, L"");
 		}
 		else
 		{
@@ -396,47 +424,47 @@ void load_other(VisualScores *vs, char *cmd)
 	}
 }
 
-bool load_other_check_input(VisualScores *vs, char *cmd, char *filename, int *begin, int *end)
+bool load_other_parse_input(VisualScores *vs, wchar_t *cmd, wchar_t *filename, int *begin, int *end)
 {
-	char str_begin[10], str_end[10];
+	wchar_t str_begin[10], str_end[10];
 	size_t pos1 = 0, pos2 = 0;
-	while(pos1 < strlen(cmd) && cmd[pos1] != ' ')
+	while(pos1 < wcslen(cmd) && cmd[pos1] != L' ')
 		++pos1;
-	strncpy(filename, cmd, pos1);
-	filename[pos1] = '\0';
-	for(unsigned int i = 0; i < strlen(filename); ++i)
-		if(filename[i] == '/')
-			filename[i] = '\\';
+	wcsncpy(filename, cmd, pos1);
+	filename[pos1] = L'\0';
+	for(unsigned int i = 0; i < wcslen(filename); ++i)
+		if(filename[i] == L'/')
+			filename[i] = L'\\';
 
-	if(cmd[pos1] == '\0')
+	if(cmd[pos1] == L'\0')
 	{
 		*begin = 1;
 		*end = vs -> image_count;
 	}
 	else
 	{
-		while(pos1 < strlen(cmd) && cmd[pos1] == ' ')
+		while(pos1 < wcslen(cmd) && cmd[pos1] == L' ')
 			++pos1;
 		pos2 = pos1;
-		while(pos2 < strlen(cmd) && cmd[pos2] != ' ')
+		while(pos2 < wcslen(cmd) && cmd[pos2] != L' ')
 			++pos2;
-		strncpy(str_begin, cmd + pos1, pos2 - pos1);
-		str_begin[pos2 - pos1] = '\0';
+		wcsncpy(str_begin, cmd + pos1, pos2 - pos1);
+		str_begin[pos2 - pos1] = L'\0';
 
-		char *pEnd;
-		*begin = strtol(str_begin, &pEnd, 10);
-		if(str_begin[0] < '0' || str_begin[0] > '9' || *pEnd != '\0' ||
+		wchar_t *pEnd;
+		*begin = wcstol(str_begin, &pEnd, 10);
+		if(str_begin[0] < '0' || str_begin[0] > '9' || *pEnd != L'\0' ||
 		   *begin <= 0 || *begin > vs -> image_count)
 		{
 			VS_print_log(INVALID_INPUT);
 			return false;
 		}
 
-		while(pos2 < strlen(cmd) && cmd[pos2] == ' ')
+		while(pos2 < wcslen(cmd) && cmd[pos2] == L' ')
 			++pos2;
-		strcpy(str_end, cmd + pos2);
-		*end = strtol(str_end, &pEnd, 10);
-		if(str_end[0] < '0' || str_end[0] > '9' || *pEnd != '\0' ||
+		wcscpy(str_end, cmd + pos2);
+		*end = wcstol(str_end, &pEnd, 10);
+		if(str_end[0] < '0' || str_end[0] > '9' || *pEnd != L'\0' ||
 		   *end < *begin || *end > vs -> image_count)
 		{
 			VS_print_log(INVALID_INPUT);
@@ -446,7 +474,7 @@ bool load_other_check_input(VisualScores *vs, char *cmd, char *filename, int *be
 	return true;
 }
 
-void delete_file(VisualScores *vs, char *cmd)
+void delete_file(VisualScores *vs, wchar_t *cmd)
 {
 	if(vs -> image_count == 0)
 	{
@@ -456,7 +484,7 @@ void delete_file(VisualScores *vs, char *cmd)
 	
 	AVType type;
 	int index;
-	bool valid = delete_file_check_input(vs, cmd, &type, &index);
+	bool valid = delete_file_parse_input(vs, cmd, &type, &index);
 	if(!valid)  return;
 	
 	switch(type)
@@ -464,9 +492,13 @@ void delete_file(VisualScores *vs, char *cmd)
 		case AVTYPE_IMAGE:
 		{
 			int pos_to_delete = vs -> image_pos[index - 1];
-			if(vs -> image_info[pos_to_delete] -> nb_repetition < 0 &&
-			   vs -> image_info[pos_to_delete - 1] -> nb_repetition > 0)
-			   vs -> image_info[pos_to_delete - 1] -> nb_repetition *= (-1);
+			if(index >= 2)
+			{
+				int pos_left = vs -> image_pos[index - 2];
+				if(vs -> image_info[pos_to_delete] -> nb_repetition < 0 &&
+				   vs -> image_info[pos_left] -> nb_repetition > 0)
+				   vs -> image_info[pos_left] -> nb_repetition *= (-1);
+			}
 			
 			AVInfo_free(vs -> image_info[pos_to_delete]);
 			for(int i = pos_to_delete + 1; i < vs -> image_count; ++i)
@@ -496,12 +528,13 @@ void delete_file(VisualScores *vs, char *cmd)
 					continue;
 				}
 
+				if(vs -> audio_info[i] -> begin <= index && vs -> audio_info[i] -> end >= index)
+					in_range_of_audio = i;
 				if(vs -> audio_info[i] -> begin > index)
 					--(vs -> audio_info[i] -> begin);
 				if(vs -> audio_info[i] -> end  >= index)
 					--(vs -> audio_info[i] -> end);
-				if(vs -> audio_info[i] -> begin <= index && vs -> audio_info[i] -> end > index)
-					in_range_of_audio = i;
+
 			}
 
 			if(in_range_of_audio >= 0)
@@ -509,9 +542,13 @@ void delete_file(VisualScores *vs, char *cmd)
 				int i = in_range_of_audio;
 				if(vs -> audio_info[i] -> partitioned)
 				{
-					char tag[10];
-					sprintf(tag, "A%d", i + 1);
+					bool muted_orig = muted;
+					muted = true;
+					wchar_t tag[10];
+					swprintf(tag, 10, L"A%d", i + 1);
 					discard_partition(vs, tag);
+					muted = muted_orig;
+					VS_print_log(PARTITION_DISCARDED, vs -> audio_info[i] -> filename);
 				}
 			}
 
@@ -567,11 +604,11 @@ void delete_file(VisualScores *vs, char *cmd)
 	
 	VS_print_log(FILE_DELETED);
 	if(vs -> image_count != 0)
-		settings(vs, "");
-	else  printf("\n");
+		settings(vs, L"");
+	else  wprintf(L"\n");
 }
 
-bool delete_file_check_input(VisualScores *vs, char *cmd, AVType *type, int *index)
+bool delete_file_parse_input(VisualScores *vs, wchar_t *cmd, AVType *type, int *index)
 {
 	size_t pos;
 	int max_index;
@@ -588,7 +625,7 @@ bool delete_file_check_input(VisualScores *vs, char *cmd, AVType *type, int *ind
 			pos = 1;
 			break;
 		case 'B':
-			if(cmd[1] == 'G')
+			if(cmd[1] == L'G')
 			{
 				*type = AVTYPE_BG_IMAGE;
 				max_index = vs -> bg_count;
@@ -606,9 +643,9 @@ bool delete_file_check_input(VisualScores *vs, char *cmd, AVType *type, int *ind
 		return false;
 	}
 	
-	char *pEnd;
-	*index = strtol(cmd + pos, &pEnd, 10);
-	if(*pEnd != '\0' || *index <= 0 || *index > max_index)
+	wchar_t *pEnd;
+	*index = wcstol(cmd + pos, &pEnd, 10);
+	if(*pEnd != L'\0' || *index <= 0 || *index > max_index)
 	{
 		VS_print_log(INVALID_INPUT);
 		return false;
@@ -617,7 +654,7 @@ bool delete_file_check_input(VisualScores *vs, char *cmd, AVType *type, int *ind
 	return true;
 }
 
-void modify_file(VisualScores *vs, char *cmd)
+void modify_file(VisualScores *vs, wchar_t *cmd)
 {
 	if(vs -> image_count == 0)
 	{
@@ -627,7 +664,7 @@ void modify_file(VisualScores *vs, char *cmd)
 	
 	AVType type;
 	int index, arg1, arg2;
-	bool valid = modify_file_check_input(vs, cmd, &type, &index, &arg1, &arg2);
+	bool valid = modify_file_parse_input(vs, cmd, &type, &index, &arg1, &arg2);
 	if(!valid)  return;
 
 	switch(type)
@@ -635,15 +672,16 @@ void modify_file(VisualScores *vs, char *cmd)
 		case AVTYPE_IMAGE:
 		{
 			int pos = ((index <= arg1) ? (arg1 - 1) : arg1);
-			char tag[10];
-			sprintf(tag, "I%d", index);
-			char cmd[STRING_LIMIT];
-			sprintf(cmd, "%s %d", vs -> image_info[vs -> image_pos[index - 1]] -> filename, pos);
+			wchar_t tag[10];
+			swprintf(tag, 10, L"I%d", index);
+			wchar_t cmd[STRING_LIMIT];
+			swprintf(cmd, STRING_LIMIT, L"%ls %d", vs -> image_info[vs -> image_pos[index - 1]] -> filename, pos);
 
+			bool muted_orig = muted;
 			muted = true;
 			delete_file(vs, tag);
 			load(vs, cmd);
-			muted = false;
+			muted = muted_orig;
 
 			break;
 		}
@@ -651,22 +689,38 @@ void modify_file(VisualScores *vs, char *cmd)
 		case AVTYPE_AUDIO:
 		{
 			int begin = arg1, end = arg2;
-			bool overlap = false;
 			for(int i = 0; i < vs -> audio_count; ++i)
 			{
 				if(i == index - 1)
 					continue;
-				if(begin <= vs -> audio_info[index - 1] -> end &&
-				   end   >= vs -> audio_info[index - 1] -> begin)
+				if(begin <= vs -> audio_info[i] -> end &&
+				   end   >= vs -> audio_info[i] -> begin)
 				{
-					overlap = true;
-					break;
+					VS_print_log(AUDIO_OVERLAP);
+					return;
 				}
 			}
-			if(overlap)
+
+			int repetition_begin = -1, repetition_end = -1;
+			for(int j = vs -> image_count - 1; j >= 0; --j)
 			{
-				VS_print_log(AUDIO_OVERLAP);
-				return;
+				if(repetition_end < 0 && vs -> image_info[ vs -> image_pos[j] ] -> nb_repetition < 0)
+					repetition_end = j + 1;
+				if(repetition_end < 0)
+					continue;
+				if(j == 0 || vs -> image_info[ vs -> image_pos[j - 1] ] -> nb_repetition <= 0)
+					repetition_begin = j + 1;
+				if(repetition_begin >= 0)
+				{
+					if(  begin <= repetition_end && end >= repetition_begin &&
+					   !(begin <= repetition_begin && end >= repetition_end) )
+					{
+						VS_print_log(REPETITION_INTERSECT_AUDIO);
+						return;
+					}
+					repetition_end = -1;
+					repetition_begin = -1;
+				}
 			}
 			
 			for(int i = vs -> audio_info[index - 1] -> begin - 1; i < vs -> audio_info[index - 1] -> end; ++i)
@@ -675,8 +729,7 @@ void modify_file(VisualScores *vs, char *cmd)
 					vs -> image_info[vs -> image_pos[i]] -> duration[j] = 3.0;
 			}
 			if(begin == end && vs -> image_info[vs -> image_pos[begin - 1]] -> nb_repetition == 0)
-				vs -> image_info[vs -> image_pos[begin - 1]] -> duration[0] = 
-					(vs -> audio_info[index - 1] -> fmt_ctx -> duration) / 1E6;
+				vs -> image_info[vs -> image_pos[begin - 1]] -> duration[0] = vs -> audio_info[index - 1] -> duration[0];
 			else
 			{
 				for(int i = begin - 1; i < end; ++i)
@@ -699,31 +752,31 @@ void modify_file(VisualScores *vs, char *cmd)
 	}
 	
 	VS_print_log(FILE_MODIFIED);
-	settings(vs, "");
+	settings(vs, L"");
 }
 
-bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type, 
+bool modify_file_parse_input(VisualScores *vs, wchar_t *cmd, AVType *type, 
                              int *index, int *arg1, int *arg2)
 {
-	char tag[10], str_arg1[10], str_arg2[10];
+	wchar_t tag[10], str_arg1[10], str_arg2[10];
 	size_t pos1 = 0, pos2 = 0;
 	
-	while(pos1 < strlen(cmd) && cmd[pos1] != ' ')
+	while(pos1 < wcslen(cmd) && cmd[pos1] != L' ')
 		++pos1;
-	strncpy(tag, cmd, pos1);
-	tag[pos1] = '\0';
+	wcsncpy(tag, cmd, pos1);
+	tag[pos1] = L'\0';
 	
-	while(pos1 < strlen(cmd) && cmd[pos1] == ' ')
+	while(pos1 < wcslen(cmd) && cmd[pos1] == L' ')
 		++pos1;
 	pos2 = pos1;
-	while(pos2 < strlen(cmd) && cmd[pos2] != ' ')
+	while(pos2 < wcslen(cmd) && cmd[pos2] != L' ')
 		++pos2;
-	strncpy(str_arg1, cmd + pos1, pos2 - pos1);
-	str_arg1[pos2 - pos1] = '\0';
+	wcsncpy(str_arg1, cmd + pos1, pos2 - pos1);
+	str_arg1[pos2 - pos1] = L'\0';
 
-	while(pos2 < strlen(cmd) && cmd[pos2] == ' ')
+	while(pos2 < wcslen(cmd) && cmd[pos2] == L' ')
 		++pos2;
-	strcpy(str_arg2, cmd + pos2);
+	wcscpy(str_arg2, cmd + pos2);
 
 	size_t pos;
 	int max_index;
@@ -740,7 +793,7 @@ bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type,
 			pos = 1;
 			break;
 		case 'B':
-			if(tag[1] == 'G')
+			if(tag[1] == L'G')
 			{
 				*type = AVTYPE_BG_IMAGE;
 				max_index = vs -> bg_count;
@@ -752,9 +805,9 @@ bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type,
 			return false;
 	}
 	
-	char *pEnd;
-	*index = strtol(tag + pos, &pEnd, 10);
-	if(*pEnd != '\0' || tag[pos] < '0' || tag[pos] > '9' 
+	wchar_t *pEnd;
+	*index = wcstol(tag + pos, &pEnd, 10);
+	if(*pEnd != L'\0' || tag[pos] < '0' || tag[pos] > '9' 
 	   || *index <= 0 || *index > max_index)
 	{
 		VS_print_log(INVALID_INPUT);
@@ -763,8 +816,8 @@ bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type,
 	
 	if(*type == AVTYPE_IMAGE)
 	{
-		*arg1 = strtol(str_arg1, &pEnd, 10);
-		if(*pEnd != '\0' || str_arg1[0] < '0' || str_arg1[0] > '9' 
+		*arg1 = wcstol(str_arg1, &pEnd, 10);
+		if(*pEnd != L'\0' || str_arg1[0] < '0' || str_arg1[0] > '9' 
 		   || *arg1 < 0 || *arg1 > vs -> image_count)
 		{
 			VS_print_log(INVALID_INPUT);
@@ -772,7 +825,7 @@ bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type,
 		}
 		
 		*arg2 = -1;
-		if(strlen(str_arg2) != 0)
+		if(wcslen(str_arg2) != 0)
 		{
 			VS_print_log(INVALID_INPUT);
 			return false;
@@ -780,16 +833,16 @@ bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type,
 	}
 	else
 	{
-		*arg1 = strtol(str_arg1, &pEnd, 10);
-		if(*pEnd != '\0' || str_arg1[0] < '0' || str_arg1[0] > '9' 
+		*arg1 = wcstol(str_arg1, &pEnd, 10);
+		if(*pEnd != L'\0' || str_arg1[0] < '0' || str_arg1[0] > '9' 
 		   || *arg1 <= 0 || *arg1 > vs -> image_count)
 		{
 			VS_print_log(INVALID_INPUT);
 			return false;
 		}
 		
-		*arg2 = strtol(str_arg2, &pEnd, 10);
-		if(*pEnd != '\0' || str_arg2[0] < '0' || str_arg2[0] > '9' 
+		*arg2 = wcstol(str_arg2, &pEnd, 10);
+		if(*pEnd != L'\0' || str_arg2[0] < '0' || str_arg2[0] > '9' 
 		   || *arg2 < *arg1 || *arg2 > vs -> image_count)
 		{
 			VS_print_log(INVALID_INPUT);
@@ -800,7 +853,7 @@ bool modify_file_check_input(VisualScores *vs, char *cmd, AVType *type,
 	return true;
 }
 
-void set_repetition(VisualScores *vs, char *cmd)
+void set_repetition(VisualScores *vs, wchar_t *cmd)
 {
 	if(vs -> image_count == 0)
 	{
@@ -809,7 +862,7 @@ void set_repetition(VisualScores *vs, char *cmd)
 	}
 	
 	int begin, end, times;
-	bool valid = set_repetition_check_input(vs, cmd, &begin, &end, &times);
+	bool valid = set_repetition_parse_input(vs, cmd, &begin, &end, &times);
 	if(!valid)  return;
 	
 	bool overlap = false, coincide = true;
@@ -839,6 +892,16 @@ void set_repetition(VisualScores *vs, char *cmd)
 		return;
 	}
 	
+	for(int j = 0; j < vs -> audio_count; ++j)
+	{
+		if(  vs -> audio_info[j] -> begin <= end && vs -> audio_info[j] -> end >= begin &&
+		   !(vs -> audio_info[j] -> begin >= begin && vs -> audio_info[j] -> end <= end) )
+		{
+			VS_print_log(REPETITION_INTERSECT_AUDIO);
+			return;
+		}
+	}
+
 	for(int i = begin; i <= end; ++i)
 	{
 		vs -> image_info[vs -> image_pos[i - 1]] -> nb_repetition = times * ( (i == end) ? (-1) : 1 );
@@ -859,56 +922,56 @@ void set_repetition(VisualScores *vs, char *cmd)
 	}
 	
 	VS_print_log(REPETITION_SET);
-	settings(vs, "");
+	settings(vs, L"");
 }
 
-bool set_repetition_check_input(VisualScores *vs, char *cmd, int *begin, int *end, int *times)
+bool set_repetition_parse_input(VisualScores *vs, wchar_t *cmd, int *begin, int *end, int *times)
 {
-	char str_begin[10], str_end[10], str_times[10];
+	wchar_t str_begin[10], str_end[10], str_times[10];
 	size_t pos1 = 0, pos2 = 0;
-	while(pos1 < strlen(cmd) && cmd[pos1] != ' ')
+	while(pos1 < wcslen(cmd) && cmd[pos1] != L' ')
 		++pos1;
-	strncpy(str_begin, cmd, pos1);
-	str_begin[pos1] = '\0';
+	wcsncpy(str_begin, cmd, pos1);
+	str_begin[pos1] = L'\0';
 	
-	char *pEnd;
-	*begin = strtol(str_begin, &pEnd, 10);
-	if(str_begin[0] < '0' || str_begin[0] > '9' || *pEnd != '\0' ||
+	wchar_t *pEnd;
+	*begin = wcstol(str_begin, &pEnd, 10);
+	if(str_begin[0] < '0' || str_begin[0] > '9' || *pEnd != L'\0' ||
 	   *begin <= 0 || *begin > vs -> image_count)
 	{
 		VS_print_log(INVALID_INPUT);
 		return false;
 	}
 
-	while(pos1 < strlen(cmd) && cmd[pos1] == ' ')
+	while(pos1 < wcslen(cmd) && cmd[pos1] == L' ')
 		++pos1;
 	pos2 = pos1;
-	while(pos2 < strlen(cmd) && cmd[pos2] != ' ')
+	while(pos2 < wcslen(cmd) && cmd[pos2] != L' ')
 		++pos2;
-	strncpy(str_end, cmd + pos1, pos2 - pos1);
-	str_end[pos2 - pos1] = '\0';
+	wcsncpy(str_end, cmd + pos1, pos2 - pos1);
+	str_end[pos2 - pos1] = L'\0';
 
-	*end = strtol(str_end, &pEnd, 10);
-	if(str_end[0] < '0' || str_end[0] > '9' || *pEnd != '\0' ||
+	*end = wcstol(str_end, &pEnd, 10);
+	if(str_end[0] < '0' || str_end[0] > '9' || *pEnd != L'\0' ||
 	   *end < *begin || *end > vs -> image_count)
 	{
 		VS_print_log(INVALID_INPUT);
 		return false;
 	}
 
-	while(pos2 < strlen(cmd) && cmd[pos2] == ' ')
+	while(pos2 < wcslen(cmd) && cmd[pos2] == L' ')
 		++pos2;
-	strcpy(str_times, cmd + pos2);
-	if(str_times[0] == '\0')
+	wcscpy(str_times, cmd + pos2);
+	if(str_times[0] == L'\0')
 	{
 		*times = 1;
 		return true;
 	}
 	
-	*times = strtol(str_times, &pEnd, 10);
+	*times = wcstol(str_times, &pEnd, 10);
 	int times_max = (FILE_LIMIT - vs -> image_count) / (*end - *begin + 1) + 1;
-	if(str_times[0] < '0' || str_times[0] > '9' || *pEnd != '\0' || 
-	   *times <= 0 || *times > REPETITION_LIMIT)
+	if(str_times[0] < '0' || str_times[0] > '9' || *pEnd != L'\0' || 
+	   *times < 0 || *times > times_max)
 	{
 		VS_print_log(INVALID_INPUT);
 		return false;
@@ -917,7 +980,7 @@ bool set_repetition_check_input(VisualScores *vs, char *cmd, int *begin, int *en
 	return true;
 }
 
-void set_duration(VisualScores *vs, char *cmd)
+void set_duration(VisualScores *vs, wchar_t *cmd)
 {
 	if(vs -> image_count == 0)
 	{
@@ -927,7 +990,7 @@ void set_duration(VisualScores *vs, char *cmd)
 	
 	int index;
 	double time;
-	bool valid = set_duration_check_input(vs, cmd, &index, &time);
+	bool valid = set_duration_parse_input(vs, cmd, &index, &time);
 	if(!valid)  return;
 	
 	int pos = vs -> image_pos[index - 1];
@@ -943,40 +1006,40 @@ void set_duration(VisualScores *vs, char *cmd)
 	for(int i = 0; i <= abs(vs -> image_info[pos] -> nb_repetition); ++i)
 		vs -> image_info[pos] -> duration[i] = time;
 	VS_print_log(DURATION_SET);
-	settings(vs, "");
+	settings(vs, L"");
 }
 
-bool set_duration_check_input(VisualScores *vs, char *cmd, int *index, double *time)
+bool set_duration_parse_input(VisualScores *vs, wchar_t *cmd, int *index, double *time)
 {
-	if(cmd[0] != 'I')
+	if(cmd[0] != L'I')
 	{
 		VS_print_log(INVALID_INPUT);
 		return false;
 	}
 	
-	char str_index[10], str_time[STRING_LIMIT];
+	wchar_t str_index[10], str_time[STRING_LIMIT];
 	size_t pos = 1;
 	
-	while(pos < strlen(cmd) && cmd[pos] != ' ')
+	while(pos < wcslen(cmd) && cmd[pos] != L' ')
 		++pos;
-	strncpy(str_index, cmd + 1, pos - 1);
-	str_index[pos] = '\0';
+	wcsncpy(str_index, cmd + 1, pos - 1);
+	str_index[pos] = L'\0';
 
-	while(pos < strlen(cmd) && cmd[pos] == ' ')
+	while(pos < wcslen(cmd) && cmd[pos] == L' ')
 		++pos;
-	strcpy(str_time, cmd + pos);
+	wcscpy(str_time, cmd + pos);
 	
-	char *pEnd;
-	*index = strtol(str_index, &pEnd, 10);
-	if(*pEnd != '\0' || str_index[0] < '0' || str_index[0] > '9' 
+	wchar_t *pEnd;
+	*index = wcstol(str_index, &pEnd, 10);
+	if(*pEnd != L'\0' || str_index[0] < '0' || str_index[0] > '9' 
 	   || *index <= 0 || *index > vs -> image_count)
 	{
 		VS_print_log(INVALID_INPUT);
 		return false;
 	}
 
-	*time = strtod(str_time, &pEnd);
-	if(*pEnd != '\0' || str_time[0] < '0' || str_time[0] > '9' || *time < 0.1 || *time > TIME_LIMIT)
+	*time = wcstod(str_time, &pEnd);
+	if(*pEnd != L'\0' || str_time[0] < '0' || str_time[0] > '9' || *time < 0.1 || *time > TIME_LIMIT)
 	{
 		VS_print_log(INVALID_INPUT);
 		return false;
@@ -984,4 +1047,3 @@ bool set_duration_check_input(VisualScores *vs, char *cmd, int *index, double *t
 	
 	return true;
 }
-

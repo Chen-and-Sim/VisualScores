@@ -4,7 +4,7 @@ INCLUDES = -I../include/
 C_FLAGS = ${INCLUDES} -W -std=c11
 LIBS = -L../lib/ \
 -lavformat -lavcodec -lavdevice -lavfilter -lavutil -lswresample -lswscale \
--lbcrypt -lgdi32 -liconv -lm -lmfplat -lole32 -lpthread -lrt -lsecur32 -lstrmiids -lwinmm -lws2_32 -lz
+-lbcrypt -lgdi32 -liconv -lm -lmfplat -lole32 -lpthread -lrtm -lrtutils -lsecur32 -lstrmiids -lwinmm -lws2_32 -lz
 
 CC = gcc.exe
 WINDRES  = windres.exe
@@ -24,7 +24,7 @@ clean: clean-custom
 
 $(BIN): $(OBJ)
 	$(CC) $(OBJ) -o $(BIN) $(LIBS)
-
+ 
 vslog.o: vslog.c ../include/vslog.h
 	$(CC) -c vslog.c -o vslog.o $(C_FLAGS)
 

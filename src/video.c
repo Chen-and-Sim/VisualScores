@@ -19,53 +19,56 @@
 #include "visualscores.h"
 
 /* Add more extensions here later. */
-bool has_video_ext(char *filename)
+bool has_video_ext(wchar_t *filename)
 {
-	char *ext = strrchr(filename, '.');
+	wchar_t *ext = wcsrchr(filename, '.');
 	if(ext == NULL)
 		return false;
 	else  ++ext;
 
-	const char video_ext[1][5] = {"mp4"};
-	for(int i = 0; i < 4; ++i)
-		if(strcmp(ext, video_ext[i]) == 0)
+	const wchar_t video_ext[3][5] = {L"mp4", L"mov", L"avi"};
+	for(int i = 0; i < 3; ++i)
+		if(wcscmp(ext, video_ext[i]) == 0)
 			return true;
 	return false;
 }
 
-void get_video_filename(char *dest, char *src)
+void get_video_filename(wchar_t *dest, wchar_t *src)
 {
 	if(src[0] == '\0')
-		strcpy(dest, ".\\_video.mp4");
-	else
 	{
-		char first[8] = "\0\0\0\0\0\0\0\0";
-		for(int i = 0; i < 7; ++i)
-		{
-			if(src[i] >= 'A' && src[i] <= 'Z')
-				first[i] = src[i] - 'A' + 'a';
-			else  first[i] = src[i];
-		}
-		
-		if(strcmp(first, "desktop") == 0)
-		{
-			char desktop_path[STRING_LIMIT];
-			SHGetSpecialFolderPath(0, desktop_path, CSIDL_DESKTOPDIRECTORY, 0);
-
-			if(desktop_path[strlen(desktop_path) - 1] == '\\' || 
-			   desktop_path[strlen(desktop_path) - 1] == '/')
-				desktop_path[strlen(desktop_path) - 1] = '\0';
-			sprintf(dest, "%s%s", desktop_path, src + 7);
-		}
-		else  strcpy(dest, src);
+		wcscpy_s(dest, STRING_LIMIT, L".\\video.mp4");
+		return;
 	}
-/* Temporary added because now we only support .mp4 files. */
-	char *pch = strrchr(dest, '.');
-	if(pch == NULL)
-		strcat(dest, ".mp4");
+
+	wchar_t first[8] = L"\0\0\0\0\0\0\0\0";
+	for(int i = 0; i < 7; ++i)
+	{
+		if(src[i] >= 'A' && src[i] <= 'Z')
+			first[i] = src[i] - 'A' + 'a';
+		else  first[i] = src[i];
+	}
+	
+	if(wcscmp(first, L"desktop") == 0)
+	{
+		wchar_t desktop_path[STRING_LIMIT];
+		SHGetSpecialFolderPathW(0, desktop_path, CSIDL_DESKTOPDIRECTORY, 0);
+	
+		wchar_t *ch = desktop_path + wcslen(desktop_path) - 1;
+		if(*ch == L'\\' || *ch == L'/')  *ch = L'\0';
+		swprintf_s(dest, STRING_LIMIT, L"%ls%ls", desktop_path, src + 7);
+	}
+	else  wcscpy_s(dest, STRING_LIMIT, src);
+
+	wchar_t last = dest[wcslen(dest) - 1];
+	if(last == L'/' || last == L'\\')
+		wcscat(dest, L"video.mp4");
+	wchar_t *pwc = wcsrchr(dest, '.');
+	if(pwc == NULL)
+		wcscat_s(dest, STRING_LIMIT, L".mp4");
 }
 
-void export_video(VisualScores *vs, char *cmd)
+void export_video(VisualScores *vs, wchar_t *cmd)
 {
 	if(vs -> image_count == 0)
 	{
@@ -81,13 +84,13 @@ void export_video(VisualScores *vs, char *cmd)
 			VS_print_log(DURATION_NOT_SET, i + 1);
 			return;
 		}
-		for(int j = 0; j < vs -> image_info[vs -> image_pos[i]] -> nb_repetition; ++j)
+		for(int j = 0; j <= vs -> image_info[vs -> image_pos[i]] -> nb_repetition; ++j)
 			total_time += vs -> image_info[vs -> image_pos[i]] -> duration[j];
 	}
 	if(total_time > TIME_LIMIT)
 		VS_print_log(TIME_LIMIT_EXCEEDED);
 	
-	char filename[STRING_LIMIT];
+	wchar_t filename[STRING_LIMIT];
 	get_video_filename(filename, cmd);
 	if(!has_video_ext(filename))
 	{
@@ -111,25 +114,26 @@ void export_video(VisualScores *vs, char *cmd)
 			height = vs -> bg_info[i] -> height;
 	}
 	
-	double scaling = FFMIN(1920.0, FFMAX(1280.0, (double)width)) / (double)width;
+	double scaling = FFMIN(1920.5, FFMAX(1280.0, (double)width)) / (double)width;
 	width = width * scaling;  /* In the range of 1280 to 1920. */
 	height = height * scaling;
 	/* It seems like swscale demands that width and height of the video file should be divisible by 4. */
-	width = width / 4 * 4;
-	height = height / 4 * 4;
+	width = (width + 2) / 4 * 4;
+	height = (height + 2) / 4 * 4;
 	
 	vs -> video_info = AVInfo_init();
 	AVInfo_open(vs -> video_info, filename, AVTYPE_VIDEO, -1, -1, width, height);
-	
+	vs -> video_info -> fmt_ctx -> duration = (int64_t)(total_time * 1E6);
+
 	bool avio_opened = (!(vs -> video_info -> fmt_ctx -> oformat -> flags & AVFMT_NOFILE));
-	if(avio_opened && (avio_open(&vs -> video_info -> fmt_ctx -> pb, 
-	                              vs -> video_info -> filename, AVIO_FLAG_WRITE) < 0))
+	if(avio_opened && (avio_open(&vs -> video_info -> fmt_ctx -> pb,
+	                              vs -> video_info -> filename_utf8, AVIO_FLAG_WRITE) < 0))
 	{
 		VS_print_log(FAILED_TO_EXPORT);
 		AVInfo_free(vs -> video_info);
 		return;
 	}
-	
+
 	if(avformat_write_header(vs -> video_info -> fmt_ctx, NULL) < 0)
 	{
 		VS_print_log(FAILED_TO_EXPORT);
@@ -150,7 +154,7 @@ void export_video(VisualScores *vs, char *cmd)
 		AVInfo_free(vs -> video_info);
 		return;
 	}
-	
+
 	if(av_write_trailer(vs -> video_info -> fmt_ctx) < 0)
 	{
 		VS_print_log(FAILED_TO_EXPORT);
@@ -170,6 +174,7 @@ bool write_image_track(VisualScores *vs)
 	for(int i = 0; i < FILE_LIMIT; ++i)
 		repeated[i] = 0;
 	double total_time_to_prev_image = 0.0, total_time_to_cur_image = 0.0;
+	int64_t begin_pts = 0;
 	
 	for(int i = 0; i < size; ++i)
 	{
@@ -196,13 +201,14 @@ bool write_image_track(VisualScores *vs)
 		total_time_to_cur_image += image_info -> duration[ repeated[rec_index[i]] ];
 		++repeated[rec_index[i]];
 		int nb_frames = (double)(total_time_to_cur_image - total_time_to_prev_image) * VS_framerate;
-		int64_t begin_pts = total_time_to_prev_image * vs -> video_info -> codec_ctx2 -> time_base.den;
 		if(!encode_image(vs -> video_info, begin_pts, nb_frames))
 		{
 			AVInfo_reopen_input(image_info);
 			return false;
 		}
 
+		begin_pts += av_rescale_q(nb_frames, vs -> video_info -> codec_ctx2 -> time_base, 
+		                                     vs -> video_info -> fmt_ctx -> streams[1] -> time_base);
 		total_time_to_prev_image += (nb_frames / VS_framerate);
 		av_frame_unref(vs -> video_info -> frame);
 		AVInfo_reopen_input(image_info);
@@ -216,7 +222,7 @@ bool write_audio_track(VisualScores *vs)
 		printf("\n");
 
 	int prev_min_begin = -1, min_begin = FILE_LIMIT, index = -1;
-	int64_t pts = 0, prev_end_pts = 0;
+	int64_t pts_from_dur = 0, pts_actual = 0;
 	for(int i = 0; i < vs -> audio_count; ++i)
 	{
 		VS_print_log(WRITING_AUDIO_TRACK, i + 1, vs -> audio_count);
@@ -239,18 +245,19 @@ bool write_audio_track(VisualScores *vs)
 			for(int k = 0; k <= vs -> image_info[vs -> image_pos[j]] -> nb_repetition; ++k)
 				begin_time += vs -> image_info[vs -> image_pos[j]] -> duration[k];
 		}
-		pts = begin_time * vs -> video_info -> codec_ctx -> time_base.den;
+		pts_from_dur = begin_time * vs -> video_info -> codec_ctx -> time_base.den;
 
-		if(pts > prev_end_pts)
+		if(pts_from_dur > pts_actual)
 		{
-			/* This may bring up to 21.3 ms of error -- acceptable. */
-			int nb_frames = (pts - prev_end_pts - 1) / 1024 + 1;
-			if(!write_blank_audio(vs -> video_info, prev_end_pts, nb_frames))
+			/* This may bring up to 13.1 ms of error -- acceptable. */
+			int nb_frames = (pts_from_dur - pts_actual + vs -> video_info -> frame_size / 2) / vs -> video_info -> frame_size;
+			if(!write_blank_audio(vs -> video_info, pts_actual, nb_frames))
 				return false;
+			pts_actual += (int64_t)vs -> video_info -> frame_size * nb_frames;
 		}
 		
-		AVAudioFifo *audio_fifo = av_audio_fifo_alloc(AV_SAMPLE_FMT_FLTP, 
-		                                              vs -> video_info -> codec_ctx -> channels, 1);
+		AVAudioFifo *audio_fifo = av_audio_fifo_alloc(vs -> video_info -> codec_ctx -> sample_fmt, 
+		                                              vs -> video_info -> codec_ctx -> ch_layout.nb_channels, 1);
 		if(!audio_fifo)
 		{
 			VS_print_log(INSUFFICIENT_MEMORY);
@@ -258,15 +265,18 @@ bool write_audio_track(VisualScores *vs)
 			abort();
 		}
 
-		if(!decode_audio_to_fifo(vs -> audio_info[index], vs -> video_info, audio_fifo, AV_SAMPLE_FMT_FLTP))
+		if(!decode_audio_to_fifo(vs -> audio_info[index], vs -> video_info, 
+								 audio_fifo, vs -> video_info -> codec_ctx -> sample_fmt))
 		{
 			AVInfo_reopen_input(vs -> audio_info[index]);
 			return false;
 		}
 
-		prev_end_pts = encode_audio_from_fifo(vs -> video_info, audio_fifo, pts, AV_SAMPLE_FMT_FLTP);
-		if(prev_end_pts == 0)
+		pts_actual = encode_audio_from_fifo(vs -> video_info, audio_fifo,
+		                                    pts_actual, vs -> video_info -> codec_ctx -> sample_fmt);
+		if(pts_actual == 0)
 		{
+			av_audio_fifo_free(audio_fifo);
 			AVInfo_reopen_input(vs -> audio_info[index]);
 			return false;
 		}

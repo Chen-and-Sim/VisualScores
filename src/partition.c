@@ -14,7 +14,7 @@
 #include "vslog.h"
 #include "visualscores.h"
 
-void partition_audio(VisualScores *vs, char *cmd)
+void partition_audio(VisualScores *vs, wchar_t *cmd)
 {
 	if(vs -> audio_count == 0)
 	{
@@ -23,7 +23,7 @@ void partition_audio(VisualScores *vs, char *cmd)
 	}
 	
 	int index;
-	bool valid = partition_audio_check_input(vs, cmd, &index);
+	bool valid = partition_audio_parse_input(vs, cmd, &index);
 	if(!valid)  return;
 	
 	int begin = vs -> audio_info[index - 1] -> begin;
@@ -33,7 +33,7 @@ void partition_audio(VisualScores *vs, char *cmd)
 		VS_print_log(NEED_NO_PARTITION);
 		return;
 	}
-	
+
 	VS_print_log(CREATING_BMP);
 	for(int i = begin - 1; i < end; ++i)
 	{
@@ -56,7 +56,7 @@ void partition_audio(VisualScores *vs, char *cmd)
 	int screen_w = GetSystemMetrics(SM_CXSCREEN);
 	HWND hWnd = CreateWindow("Preview", "Preview", WS_POPUP | WS_BORDER | WS_VISIBLE,
 	                         screen_w * 0.55, 0, screen_w * 0.45, screen_w * 0.3,
-									 NULL, NULL, (HINSTANCE)GetModuleHandle(NULL), NULL);
+	                         NULL, NULL, (HINSTANCE)GetModuleHandle(NULL), NULL);
 	if(hWnd == NULL)
 	{
 		VS_print_log(FAILED_TO_DISPLAY);
@@ -66,6 +66,13 @@ void partition_audio(VisualScores *vs, char *cmd)
 	}
 	
 	HBITMAP* hBitmap = malloc(sizeof(HBITMAP));
+	if(hBitmap == NULL)
+	{
+		VS_print_log(INSUFFICIENT_MEMORY);
+		system("pause >nul 2>&1");
+		abort();
+	}
+
 	*hBitmap = LoadImage(NULL, "resource\\blank.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 	if(*hBitmap == NULL)
 	{
@@ -89,23 +96,25 @@ void partition_audio(VisualScores *vs, char *cmd)
 	if(!PlaySound("resource\\audition.wav", NULL, SND_FILENAME | SND_ASYNC))
 	{
 		VS_print_log(FAILED_TO_AUDITION);
-		system("forfiles /P resource\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1 \"");
+		system("forfiles /P resource\\ /M _display_*.bmp /C \"cmd /c del @file >nul 2>&1\"");
 		system("del resource\\audition.wav >nul 2>&1 ");
 		return;
 	}
 	
 	DeleteObject(*hBitmap);
 	RedrawWindow(hWnd, NULL, NULL, RDW_ERASE | RDW_INVALIDATE);
-	char *bmp_filename = vs -> image_info[vs -> image_pos[begin - 1]] -> bmp_filename;
-	*hBitmap = LoadImage(NULL, bmp_filename, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+	wchar_t *bmp_filename = vs -> image_info[vs -> image_pos[begin - 1]] -> bmp_filename;
+	*hBitmap = LoadImageW(NULL, bmp_filename, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 	do_painting(hWnd, hBitmap);
 
 	int rec_index[FILE_LIMIT];
 	/* Begin and end are defined at the beginning of this function. */
 	int size = fill_index(vs, begin - 1, end - 1, rec_index);
 	int total_partition = size - 1;
-	int partition_count = -1;
-	clock_t begin_time = 0, prev_time = 0;
+	int partition_count = 0;
+	/* The actual playtime of the music lags somewhere behind the command 'PlaySound'. */
+	clock_t begin_time = clock() + (double)CLOCKS_PER_SEC / 2.0, prev_time = begin_time;
+	VS_print_log(BEGIN_PARTITION);
 	double rec_duration[FILE_LIMIT];
 	MSG msg;
 
@@ -138,9 +147,9 @@ void partition_audio(VisualScores *vs, char *cmd)
 	}
 }
 
-bool partition_audio_check_input(VisualScores *vs, char *cmd, int *index)
+bool partition_audio_parse_input(VisualScores *vs, wchar_t *cmd, int *index)
 {
-	if(cmd[0] == '\0')
+	if(cmd[0] == L'\0')
 	{
 		for(int i = 0; i < vs -> audio_count; ++i)
 		{
@@ -157,15 +166,15 @@ bool partition_audio_check_input(VisualScores *vs, char *cmd, int *index)
 		return false;
 	}
 	
-	if(cmd[0] != 'A' || cmd[1] < '0' || cmd[1] > '9')
+	if(cmd[0] != L'A' || cmd[1] < L'0' || cmd[1] > L'9')
 	{
 		VS_print_log(INVALID_INPUT);
 		return false;
 	}
 	
-	char *pEnd;
-	*index = strtol(cmd + 1, &pEnd, 10);
-	if(*pEnd != '\0' || *index <= 0 || *index > vs -> audio_count)
+	wchar_t *pEnd;
+	*index = wcstol(cmd + 1, &pEnd, 10);
+	if(*pEnd != L'\0' || *index <= 0 || *index > vs -> audio_count)
 	{
 		VS_print_log(INVALID_INPUT);
 		return false;
@@ -182,8 +191,9 @@ void register_duration(VisualScores *vs, int total_partition, int *rec_index, do
 
 	for(int i = 0; i <= total_partition; ++i)
 	{
-		vs -> image_info[ rec_index[i] ] -> duration[ repeated[rec_index[i]] ] = rec_duration[i];
-		++repeated[rec_index[i]];
+		int index = vs -> image_pos[ rec_index[i] ];
+		vs -> image_info[index] -> duration[ repeated[index] ] = rec_duration[i];
+		++repeated[index];
 	}
 }
 
@@ -218,30 +228,20 @@ bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_
 	if(*partition_count == total_partition)
 	{
 		escape_pressed(hWnd, hBitmap);
-		settings(vs, "");
+		settings(vs, L"");
 		return true;
 	}
-	
-	if(*partition_count == -1)
-	{
-		++(*partition_count);
-		VS_print_log(BEGIN_PARTITION);
-		/* We leave 0.2 second of (extra) reaction time. */
-		*begin_time = clock() - CLOCKS_PER_SEC / 5;
-		*prev_time = *begin_time;
-		return false;
-	}
-	
+
 	++(*partition_count);
 	VS_print_log(TIMES_PARTITIONED, *partition_count, total_partition - *partition_count);
 	clock_t cur_time = clock();
 	rec_duration[*partition_count - 1] = ((cur_time - *prev_time) / (double)CLOCKS_PER_SEC);
 	*prev_time = cur_time;
 
-	char *bmp_filename = vs -> image_info[vs -> image_pos[ rec_index[*partition_count] ]] -> bmp_filename;
+	wchar_t *bmp_filename = vs -> image_info[vs -> image_pos[ rec_index[*partition_count] ]] -> bmp_filename;
 	DeleteObject(*hBitmap);
 	RedrawWindow(hWnd, NULL, NULL, RDW_ERASE | RDW_INVALIDATE);
-	*hBitmap = LoadImage(NULL, bmp_filename, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+	*hBitmap = LoadImageW(NULL, bmp_filename, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 	if(*hBitmap == NULL)
 	{
 		VS_print_log(FAILED_TO_DISPLAY);
@@ -250,7 +250,7 @@ bool enter_pressed(HWND hWnd, HBITMAP *hBitmap, VisualScores *vs, AVInfo *audio_
 	}
 
 	double total_time = ((cur_time - *begin_time) / (double)CLOCKS_PER_SEC);
-	double audio_duration = (audio_info -> fmt_ctx -> duration) / 1E6;
+	double audio_duration = audio_info -> duration[0];
 	if(total_time > audio_duration)
 	{
 		VS_print_log(TIMED_OUT);
@@ -281,17 +281,17 @@ void escape_pressed(HWND hWnd, HBITMAP *hBitmap)
 	free(hBitmap);
 }
 
-void discard_partition(VisualScores *vs, char *cmd)
+void discard_partition(VisualScores *vs, wchar_t *cmd)
 {
-	if(cmd[0] != 'A' || cmd[1] < '0' || cmd[1] > '9')
+	if(cmd[0] != L'A' || cmd[1] < L'0' || cmd[1] > L'9')
 	{
 		VS_print_log(INVALID_INPUT);
 		return;
 	}
 	
-	char *pEnd;
-	int index = strtol(cmd + 1, &pEnd, 10);
-	if(*pEnd != '\0' || index <= 0 || index > vs -> audio_count)
+	wchar_t *pEnd;
+	int index = wcstol(cmd + 1, &pEnd, 10);
+	if(*pEnd != L'\0' || index <= 0 || index > vs -> audio_count)
 	{
 		VS_print_log(INVALID_INPUT);
 		return;
@@ -303,6 +303,5 @@ void discard_partition(VisualScores *vs, char *cmd)
 		for(int i = vs -> audio_info[index - 1] -> begin - 1; i < vs -> audio_info[index - 1] -> end; ++i)
 			(vs -> image_info[vs -> image_pos[i]] -> duration[0]) *= (-1);
 	}
-	settings(vs, "");
+	settings(vs, L"");
 }
-

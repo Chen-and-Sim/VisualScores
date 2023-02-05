@@ -4,7 +4,11 @@
  * contexts inside these AVInfo objects.
  */
 
+#include <locale.h>
 #include <stdbool.h>
+#include <string.h>
+#include <stringapiset.h>
+#include <wchar.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -13,11 +17,21 @@
 #include "vslog.h"
 
 const double VS_framerate = 25.0;
-const int VS_samplerate = 44100;
+const int VS_samplerate = 48000;
+const int WAV_samplerate = 44100;
+const int MP3_framesize = 1152;
+const int AAC_framesize = 1024;
+const int WAV_framesize = 1024;
 
 AVInfo *AVInfo_init()
 {
 	AVInfo *av_info = malloc(sizeof(AVInfo));
+	if(av_info == NULL)
+	{
+		VS_print_log(INSUFFICIENT_MEMORY);
+		system("pause >nul 2>&1");
+		abort();
+	}
 	
 	av_info -> fmt_ctx = NULL;
 	av_info -> codec_ctx = NULL;
@@ -29,8 +43,10 @@ AVInfo *AVInfo_init()
 	av_info -> duration = malloc(sizeof(double) * REPETITION_LIMIT);
 	av_info -> duration[0] = 3.0;
 	av_info -> partitioned = false;
-	av_info -> filename = malloc(sizeof(char) * STRING_LIMIT);
-	av_info -> bmp_filename = malloc(sizeof(char) * STRING_LIMIT);
+	av_info -> filename = malloc(sizeof(wchar_t) * STRING_LIMIT);
+	av_info -> bmp_filename = malloc(sizeof(wchar_t) * STRING_LIMIT);
+	av_info -> filename_utf8 = malloc(sizeof(wchar_t) * STRING_LIMIT);
+	av_info -> bmp_filename_utf8 = malloc(sizeof(wchar_t) * STRING_LIMIT);
 
 	return av_info;
 }
@@ -44,15 +60,18 @@ void AVInfo_free(AVInfo *av_info)
 		case AVTYPE_IMAGE:
 		case AVTYPE_AUDIO:
 		case AVTYPE_BG_IMAGE:
-			avformat_close_input(&av_info -> fmt_ctx);
+			if(av_info -> fmt_ctx != NULL)
+				avformat_close_input(&av_info -> fmt_ctx);
 			break;
 		case AVTYPE_BMP:
 		case AVTYPE_WAV:
 		case AVTYPE_VIDEO:
-			avformat_free_context(av_info -> fmt_ctx);
+			if(av_info -> fmt_ctx != NULL)
+				avformat_free_context(av_info -> fmt_ctx);
 	}
 	
-	avcodec_free_context(&av_info -> codec_ctx);
+	if(av_info -> codec_ctx  != NULL)
+		avcodec_free_context(&av_info -> codec_ctx);
 	if(av_info -> codec_ctx2 != NULL)
 		avcodec_free_context(&av_info -> codec_ctx2);
 	av_packet_free(&av_info -> packet);
@@ -61,25 +80,49 @@ void AVInfo_free(AVInfo *av_info)
 	free(av_info -> duration);
 	free(av_info -> filename);
 	free(av_info -> bmp_filename);
+	free(av_info -> filename_utf8);
+	free(av_info -> bmp_filename_utf8);
 	free(av_info);
 }
 
-bool AVInfo_open(AVInfo *av_info, char *filename, AVType type,
+bool AVInfo_open(AVInfo *av_info, wchar_t *filename, AVType type,
                  int begin, int end, int width, int height)
 {
+	wcscpy_s(av_info -> filename, STRING_LIMIT, filename);
+	int size = WideCharToMultiByte(CP_UTF8, 0, filename, -1, NULL, 0, NULL, NULL);
+	WideCharToMultiByte(CP_UTF8, 0, filename, -1, av_info -> filename_utf8, size, NULL, NULL);
+
+	char fmt_short_name[10];
+	wchar_t w_fmt[10];
+	wchar_t *pwc = wcsrchr(filename, L'.') + 1;
+	wcscpy_s(w_fmt, 10, pwc);
+	wcstombs(fmt_short_name, w_fmt, 10);
+
+	if(strcmp(fmt_short_name, "jpg") == 0)
+		strcpy_s(fmt_short_name, 10, "jpeg");
+	if(strcmp(fmt_short_name, "tif") == 0)
+		strcpy_s(fmt_short_name, 10, "tiff");
+	if((type == AVTYPE_IMAGE || type == AVTYPE_BG_IMAGE) && strcmp(fmt_short_name, "ico") != 0)
+		strcat_s(fmt_short_name, 10, "_pipe");
+
 	av_info -> type = type;
-	strcpy(av_info -> filename, filename);
 	switch(type)
 	{
 		case AVTYPE_IMAGE:
 		{
-			char *pch = strrchr(av_info -> filename, '\\');
-			sprintf(av_info -> bmp_filename, "resource\\_display_%s.bmp", pch + 1);
+			wchar_t *pwc = wcsrchr(av_info -> filename, L'\\');
+			swprintf_s(av_info -> bmp_filename, STRING_LIMIT, L"resource\\_display_%ls.bmp", pwc + 1);
+			int size = WideCharToMultiByte(CP_UTF8, 0, av_info -> bmp_filename, -1, NULL, 0, NULL, NULL);
+			WideCharToMultiByte(CP_UTF8, 0, av_info -> bmp_filename, -1, av_info -> bmp_filename_utf8, size, NULL, NULL);
 			break;
 		}
 		case AVTYPE_BMP:
-			strcpy(av_info -> bmp_filename, filename);
+		{
+			wcscpy_s(av_info -> bmp_filename, STRING_LIMIT, filename);
+			int size = WideCharToMultiByte(CP_UTF8, 0, av_info -> bmp_filename, -1, NULL, 0, NULL, NULL);
+			WideCharToMultiByte(CP_UTF8, 0, av_info -> bmp_filename, -1, av_info -> bmp_filename_utf8, size, NULL, NULL);
 			break;
+		}
 	}
 
 	switch(type)
@@ -96,16 +139,6 @@ bool AVInfo_open(AVInfo *av_info, char *filename, AVType type,
 			av_info -> height = height;
 			break;
 	}
-
-	char *pch = strrchr(filename, '.') + 1;
-	char fmt_short_name[10];
-	strcpy(fmt_short_name, pch);
-	if(strcmp(fmt_short_name, "jpg") == 0)
-		strcpy(fmt_short_name, "jpeg");
-	if(strcmp(fmt_short_name, "tif") == 0)
-		strcpy(fmt_short_name, "tiff");
-	if((type == AVTYPE_IMAGE || type == AVTYPE_BG_IMAGE) && strcmp(fmt_short_name, "ico") != 0)
-		strcat(fmt_short_name, "_pipe");
 
 	bool ret = true;
 	switch(type)
@@ -129,7 +162,7 @@ bool AVInfo_open(AVInfo *av_info, char *filename, AVType type,
 			ret = AVInfo_open_wav(av_info);
 			break;
 		case AVTYPE_VIDEO:
-			ret = AVInfo_open_video(av_info);
+			ret = AVInfo_open_video(av_info, fmt_short_name);
 			break;
 	}
 	return ret;
@@ -152,7 +185,7 @@ bool AVInfo_open_input(AVInfo *av_info, char *fmt_short_name)
 		return false;
 	}
 
-	av_info -> fmt_ctx -> url = av_strdup(av_info -> filename);
+	av_info -> fmt_ctx -> url = av_strdup(av_info -> filename_utf8);
 	if(avformat_open_input(&av_info -> fmt_ctx, av_info -> fmt_ctx -> url,
 	                        av_info -> fmt_ctx -> iformat, NULL) < 0)
 	{
@@ -166,7 +199,7 @@ bool AVInfo_open_input(AVInfo *av_info, char *fmt_short_name)
 		return false;
 	}
 
-	AVCodec *codec = avcodec_find_decoder(av_info -> fmt_ctx -> streams[0] -> codecpar -> codec_id);
+	const AVCodec *codec = avcodec_find_decoder(av_info -> fmt_ctx -> streams[0] -> codecpar -> codec_id);
 	if(!codec)
 	{
 		avformat_close_input(&av_info -> fmt_ctx);
@@ -216,7 +249,7 @@ bool AVInfo_open_input(AVInfo *av_info, char *fmt_short_name)
 
 bool AVInfo_open_bmp(AVInfo *av_info)
 {
-	avformat_alloc_output_context2(&av_info -> fmt_ctx, NULL, NULL, av_info -> filename);
+	avformat_alloc_output_context2(&av_info -> fmt_ctx, NULL, NULL, av_info -> filename_utf8);
 	if(!av_info -> fmt_ctx)
 	{
 		VS_print_log(INSUFFICIENT_MEMORY);
@@ -224,8 +257,8 @@ bool AVInfo_open_bmp(AVInfo *av_info)
 		abort();
 	}
 
-	av_info -> fmt_ctx -> url = av_strdup(av_info -> filename);
-	av_info -> fmt_ctx -> oformat = av_guess_format(NULL, av_info -> filename, NULL);
+	av_info -> fmt_ctx -> url = av_strdup(av_info -> filename_utf8);
+	av_info -> fmt_ctx -> oformat = av_guess_format(NULL, av_info -> filename_utf8, NULL);
 	if(!av_info -> fmt_ctx -> oformat)
 	{
 		avformat_free_context(av_info -> fmt_ctx);
@@ -239,7 +272,7 @@ bool AVInfo_open_bmp(AVInfo *av_info)
 		abort();
 	}
    
-	AVCodec *encoder = avcodec_find_encoder(AV_CODEC_ID_BMP);
+	const AVCodec *encoder = avcodec_find_encoder(AV_CODEC_ID_BMP);
 	if(!encoder)
 	{
 		avformat_free_context(av_info -> fmt_ctx);
@@ -308,7 +341,7 @@ bool AVInfo_open_bmp(AVInfo *av_info)
 
 bool AVInfo_open_wav(AVInfo *av_info)
 {
-	avformat_alloc_output_context2(&av_info -> fmt_ctx, NULL, NULL, av_info -> filename);
+	avformat_alloc_output_context2(&av_info -> fmt_ctx, NULL, NULL, av_info -> filename_utf8);
 	if(!av_info -> fmt_ctx)
 	{
 		VS_print_log(INSUFFICIENT_MEMORY);
@@ -316,15 +349,15 @@ bool AVInfo_open_wav(AVInfo *av_info)
 		abort();
 	}
 
-	av_info -> fmt_ctx -> url = av_strdup(av_info -> filename);
-	av_info -> fmt_ctx -> oformat = av_guess_format(NULL, av_info -> filename, NULL);
+	av_info -> fmt_ctx -> url = av_strdup(av_info -> filename_utf8);
+	av_info -> fmt_ctx -> oformat = av_guess_format(NULL, av_info -> filename_utf8, NULL);
 	if(!av_info -> fmt_ctx -> oformat)
 	{
 		avformat_free_context(av_info -> fmt_ctx);
 		return false;
 	}
 
-	AVCodec *encoder = avcodec_find_encoder(AV_CODEC_ID_ADPCM_IMA_WAV);
+	const AVCodec *encoder = avcodec_find_encoder(AV_CODEC_ID_ADPCM_IMA_WAV);
 	if(!encoder)
 	{
 		avformat_free_context(av_info -> fmt_ctx);
@@ -339,12 +372,12 @@ bool AVInfo_open_wav(AVInfo *av_info)
 		abort();
 	}
 
+	av_info -> frame_size = WAV_framesize;
 	av_info -> codec_ctx -> sample_fmt = AV_SAMPLE_FMT_S16P;
-	av_info -> codec_ctx -> sample_rate = VS_samplerate;
-	av_info -> codec_ctx -> bit_rate = 192000;
-	av_info -> codec_ctx -> time_base = (AVRational){1, VS_samplerate};
-	av_info -> codec_ctx -> channel_layout = AV_CH_LAYOUT_STEREO;
-	av_info -> codec_ctx -> channels = av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO);
+	av_info -> codec_ctx -> sample_rate = WAV_samplerate;
+	av_info -> codec_ctx -> bit_rate = 352800;
+	av_info -> codec_ctx -> time_base = (AVRational){1, WAV_samplerate};
+	av_channel_layout_default(&av_info -> codec_ctx -> ch_layout, 2);
 	if(av_info -> fmt_ctx -> oformat -> flags & AVFMT_GLOBALHEADER)
 		av_info -> codec_ctx -> flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
@@ -390,9 +423,9 @@ bool AVInfo_open_wav(AVInfo *av_info)
 	return true;
 }
 
-bool AVInfo_open_video(AVInfo *av_info)
+bool AVInfo_open_video(AVInfo *av_info, char *fmt_short_name)
 {
-	avformat_alloc_output_context2(&av_info -> fmt_ctx, NULL, NULL, av_info -> filename);
+	avformat_alloc_output_context2(&av_info -> fmt_ctx, NULL, NULL, av_info -> filename_utf8);
 	if(!av_info -> fmt_ctx)
 	{
 		VS_print_log(INSUFFICIENT_MEMORY);
@@ -400,15 +433,20 @@ bool AVInfo_open_video(AVInfo *av_info)
 		abort();
 	}
 
-	av_info -> fmt_ctx -> url = av_strdup(av_info -> filename);
-	av_info -> fmt_ctx -> oformat = av_guess_format(NULL, av_info -> filename, NULL);
+	av_info -> fmt_ctx -> url = av_strdup(av_info -> filename_utf8);
+	av_info -> fmt_ctx -> oformat = av_guess_format(NULL, av_info -> filename_utf8, NULL);
 	if(!av_info -> fmt_ctx -> oformat)
 	{
 		avformat_free_context(av_info -> fmt_ctx);
 		return false;
 	}
 
-	AVCodec *encoder = avcodec_find_encoder(AV_CODEC_ID_AAC);
+	const AVCodec *encoder;
+	if(strcmp(fmt_short_name, "avi") == 0)
+		encoder = avcodec_find_encoder(AV_CODEC_ID_MP3);
+	else
+		encoder = avcodec_find_encoder(AV_CODEC_ID_AAC);
+
 	if(!encoder)
 	{
 		avformat_free_context(av_info -> fmt_ctx);
@@ -423,12 +461,20 @@ bool AVInfo_open_video(AVInfo *av_info)
 		abort();
 	}
 
-	av_info -> codec_ctx -> sample_fmt = AV_SAMPLE_FMT_FLTP;
+	if(strcmp(fmt_short_name, "avi") == 0)
+	{
+		av_info -> codec_ctx -> sample_fmt = AV_SAMPLE_FMT_S16;
+		av_info -> frame_size = MP3_framesize;
+	}
+	else
+	{
+		av_info -> codec_ctx -> sample_fmt = AV_SAMPLE_FMT_FLTP;
+		av_info -> frame_size = AAC_framesize;
+	}
 	av_info -> codec_ctx -> sample_rate = VS_samplerate;
 	av_info -> codec_ctx -> bit_rate = 192000;
 	av_info -> codec_ctx -> time_base = (AVRational){1, VS_samplerate};
-	av_info -> codec_ctx -> channel_layout = AV_CH_LAYOUT_STEREO;
-	av_info -> codec_ctx -> channels = av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO);
+	av_channel_layout_default(&av_info -> codec_ctx -> ch_layout, 2);
 	if(av_info -> fmt_ctx -> oformat -> flags & AVFMT_GLOBALHEADER)
 		av_info -> codec_ctx -> flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
@@ -455,12 +501,12 @@ bool AVInfo_open_video(AVInfo *av_info)
 	}
 	audio_stream -> time_base = av_info -> codec_ctx -> time_base;
 
-	AVCodec *encoder2 = avcodec_find_encoder(AV_CODEC_ID_MPEG4);
-	if(!encoder)
+	const AVCodec *encoder2 = avcodec_find_encoder(AV_CODEC_ID_MPEG4);
+	if(!encoder2)
 	{
 		avcodec_free_context(&av_info -> codec_ctx);
-      avformat_free_context(av_info -> fmt_ctx);
-      return false;
+		avformat_free_context(av_info -> fmt_ctx);
+		return false;
 	}
 
 	av_info -> codec_ctx2 = avcodec_alloc_context3(encoder2);
@@ -475,11 +521,10 @@ bool AVInfo_open_video(AVInfo *av_info)
 	av_info -> codec_ctx2 -> height = av_info -> height;
 	av_info -> codec_ctx2 -> sample_aspect_ratio = (AVRational){1, 1};
 	av_info -> codec_ctx2 -> pix_fmt = AV_PIX_FMT_YUV420P;
-	av_info -> codec_ctx2 -> time_base = (AVRational){1, VS_framerate * 1000};
+	av_info -> codec_ctx2 -> time_base = (AVRational){1, (int)VS_framerate};
 	av_info -> codec_ctx2 -> framerate = (AVRational){(int)VS_framerate, 1};
-	av_info -> codec_ctx2 -> has_b_frames = 0;
 	av_info -> codec_ctx2 -> max_b_frames = 0;
-	av_info -> codec_ctx2 -> gop_size = 0;
+	av_info -> codec_ctx2 -> gop_size = 10;
 	if(av_info -> fmt_ctx -> oformat -> flags & AVFMT_GLOBALHEADER)
 		av_info -> codec_ctx2 -> flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
@@ -553,4 +598,3 @@ void AVInfo_reopen_input(AVInfo *av_info)
 	}
 	AVInfo_open(av_info, av_info -> filename, av_info -> type, begin, end, width, height);
 }
-

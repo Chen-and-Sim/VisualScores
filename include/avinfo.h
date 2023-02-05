@@ -20,6 +20,10 @@
 
 extern const double VS_framerate;
 extern const int VS_samplerate;
+extern const int WAV_samplerate;
+extern const int MP3_framesize;
+extern const int AAC_framesize;
+extern const int WAV_framesize;
 
 typedef enum AVType
 {
@@ -34,13 +38,14 @@ typedef enum AVType
 typedef struct AVInfo
 {
 	AVFormatContext *fmt_ctx;
-	AVCodecContext  *codec_ctx;   /* audio codec context for video_file */
+	AVCodecContext  *codec_ctx;   /* audio codec context for video file */
 	AVCodecContext  *codec_ctx2;  /* video codec context for video file */
 	AVPacket *packet;
 	AVFrame  *frame;
 
 	AVType type;
-	char *filename;
+	wchar_t *filename;
+	char *filename_utf8;
 
 	/* for image track */
 	/**
@@ -51,9 +56,11 @@ typedef struct AVInfo
 	 */
 	int nb_repetition;
 	double *duration;  /* in seconds; 3.0 by default; is negative if unspecified */
-	char *bmp_filename;  /* The name of bmp file for display. */
+	wchar_t *bmp_filename;  /* The name of bmp file for display. */
+	char *bmp_filename_utf8;
 
 	bool partitioned;  /* for audio track */
+	int frame_size;    /* the frame size of the audio stream in the video file */
 
 	/**
 	 * for audio & background image track
@@ -78,17 +85,17 @@ extern void AVInfo_free(AVInfo *av_info);
  * Load an image/audio file to an AVInfo object.
  * Return true on success and false on failure.
  * Variables "begin" and "end" is used to determine
- * av_info -> begin / end / begin / end.
+ * av_info -> begin / av_info -> end.
  * Variables "width" and "height" is used to determine the size of output file.
  */
-extern bool AVInfo_open(AVInfo *av_info, char *filename, AVType type,
+extern bool AVInfo_open(AVInfo *av_info, wchar_t *filename, AVType type,
                          int begin, int end, int width, int height);
 
-/* Variable "fmt_short_name" is used to determine demuxers. */
+/* Variable "fmt_short_name" is used to determine muxers/demuxers. */
 extern bool AVInfo_open_input(AVInfo *av_info, char *fmt_short_name);
 extern bool AVInfo_open_bmp(AVInfo *av_info);
 extern bool AVInfo_open_wav(AVInfo *av_info);
-extern bool AVInfo_open_video(AVInfo *av_info);
+extern bool AVInfo_open_video(AVInfo *av_info, char *fmt_short_name);
 
 /* Clear original data and open the file again. */
 extern void AVInfo_reopen_input(AVInfo *av_info);
@@ -128,7 +135,10 @@ extern bool AVInfo_write_to_fifo(AVAudioFifo *audio_fifo, AVFrame *frame);
 extern bool decode_audio_to_fifo(AVInfo *audio_info, AVInfo *video_info,
                                  AVAudioFifo *audio_fifo, enum AVSampleFormat fmt);
 /* Return the final pts value of the whole audio. */
-extern int  encode_audio_from_fifo(AVInfo *video_info, AVAudioFifo *audio_fifo,
-                                   int64_t begin_pts, enum AVSampleFormat fmt);
+extern int64_t encode_audio_from_fifo(AVInfo *video_info, AVAudioFifo *audio_fifo,
+                                      int64_t begin_pts, enum AVSampleFormat fmt);
+
+/* Get the duration of an audio file. The duration is not directly recorded in aac files. */
+extern bool get_audio_duration(AVInfo *audio_info);
 
 #endif /* AVINFO_H */
